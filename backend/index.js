@@ -243,6 +243,70 @@ app.post('/api/auth/reset-password', async (req, res) => {
 });
 
 
+// Migration: Add cidade + pais columns to tb_casas_religiosas (fixes cidade in production)
+app.get('/api/debug/migrate-casas-cidade', async (req, res) => {
+  const steps = [];
+  try {
+    // 1. Add cidade column if not exists
+    const [hasCidade] = await db.query("SHOW COLUMNS FROM tb_casas_religiosas LIKE 'cidade'");
+    if (hasCidade.length === 0) {
+      await db.query("ALTER TABLE tb_casas_religiosas ADD COLUMN cidade VARCHAR(255) AFTER endereco");
+      steps.push({ step: 'add_cidade_column', status: 'CREATED' });
+    } else {
+      steps.push({ step: 'add_cidade_column', status: 'ALREADY_EXISTS' });
+    }
+
+    // 2. Add pais column if not exists
+    const [hasPais] = await db.query("SHOW COLUMNS FROM tb_casas_religiosas LIKE 'pais'");
+    if (hasPais.length === 0) {
+      await db.query("ALTER TABLE tb_casas_religiosas ADD COLUMN pais VARCHAR(100) AFTER cidade");
+      steps.push({ step: 'add_pais_column', status: 'CREATED' });
+    } else {
+      steps.push({ step: 'add_pais_column', status: 'ALREADY_EXISTS' });
+    }
+
+    // 3. Populate cidade from endereco for rows where cidade is NULL
+    // Endereco format: "Rua X, 123, Bairro, Cidade, UF, CEP ..."
+    // Try to extract "Cidade, UF" part (typically the 4th and 5th comma-separated segment)
+    const [casas] = await db.query("SELECT id, endereco, cidade, pais FROM tb_casas_religiosas WHERE cidade IS NULL OR cidade = ''");
+    let populated = 0;
+    for (const casa of casas) {
+      if (!casa.endereco) continue;
+      const parts = casa.endereco.split(',').map(p => p.trim()).filter(Boolean);
+      // Try to find a part that looks like a city (not a number, not a CEP, not short abbreviation)
+      // Typical format: Rua, Num, Complemento, Bairro, Cidade, UF, CEP País
+      let cidade = null;
+      let pais = null;
+      // Look for a 2-letter UF/state code to anchor the city
+      for (let i = 1; i < parts.length; i++) {
+        if (/^[A-Z]{2}$/.test(parts[i]) && i > 0) {
+          cidade = `${parts[i-1]}/${parts[i]}`;
+          break;
+        }
+      }
+      // Look for "Brasil" or country name
+      const padroesPais = ['Brasil', 'Brazil', 'Argentina', 'Itália', 'Portugal', 'Paraguai', 'Bolívia', 'Colômbia'];
+      for (const p of parts) {
+        if (padroesPais.some(pp => p.toLowerCase().includes(pp.toLowerCase()))) {
+          pais = p.trim();
+          break;
+        }
+      }
+      if (cidade || pais) {
+        await db.query(
+          "UPDATE tb_casas_religiosas SET cidade = COALESCE(NULLIF(cidade,''), ?), pais = COALESCE(NULLIF(pais,''), ?) WHERE id = ?",
+          [cidade || null, pais || null, casa.id]
+        );
+        populated++;
+      }
+    }
+    steps.push({ step: 'populate_cidade_from_endereco', status: 'DONE', rows_updated: populated });
+
+    res.json({ success: true, message: 'Migration applied successfully', steps });
+  } catch (err) {
+    res.status(500).json({ success: false, error: err.message, steps });
+  }
+});
 
 // Diagnostic endpoint
 app.get('/api/debug/db-check', async (req, res) => {
