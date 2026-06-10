@@ -20,8 +20,12 @@ cd "$SCRIPT_DIR/frontend"
 npm run build
 
 echo "▶ Enviando frontend para o servidor..."
-rsync -az --delete \
+rsync -az \
   --exclude="api/" \
+  --exclude="uploads/" \
+  --exclude=".well-known/" \
+  --exclude="cgi-bin/" \
+  --exclude=".htaccess*" \
   "$SCRIPT_DIR/frontend/dist/" \
   "$SSH_USER@$SSH_HOST:$REMOTE_ROOT/"
 
