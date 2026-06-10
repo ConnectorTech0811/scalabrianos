@@ -30,9 +30,9 @@ rsync -az \
   "$SSH_USER@$SSH_HOST:$REMOTE_ROOT/"
 
 echo "▶ Enviando backend para o servidor (api/)..."
-rsync -az --delete \
+rsync -az \
   --exclude="node_modules/" \
-  --exclude=".env" \
+  --exclude=".env*" \
   --exclude="uploads/" \
   --exclude="*.sqlite" \
   --exclude="debug.log" \
