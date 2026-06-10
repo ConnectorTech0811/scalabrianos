@@ -144,7 +144,7 @@ const Administradores: React.FC = () => {
     }
 
     try {
-      await api.delete(`/usuarios/${profile.id}`);
+      await api.post(`/usuarios/${profile.id}/delete`);
       await fetchProfiles();
     } catch {
       alert('Erro ao excluir usuário. Tente novamente.');

@@ -621,6 +621,19 @@ app.delete('/api/usuarios/:id', authenticateToken, async (req, res) => {
   }
 });
 
+// Alias for DELETE to avoid 403 Forbidden on some servers
+app.post('/api/usuarios/:id/delete', authenticateToken, async (req, res) => {
+  const { id } = req.params;
+  try {
+    await db.query('DELETE FROM tb_usuarios WHERE id = ?', [id]);
+    await logAction(req.user.id, 'EXCLUIU_USUARIO', 'tb_usuarios', `Excluiu usuario ID ${id} (via POST)`);
+    res.json({ message: 'Usuário excluído com sucesso' });
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+});
+
+
 // Religious Houses
 app.get('/api/casas-religiosas', authenticateToken, async (req, res) => {
   try {
@@ -795,6 +808,23 @@ app.delete('/api/casas-religiosas/:id', authenticateToken, async (req, res) => {
     res.status(500).json({ message: error.message });
   }
 });
+
+// Alias for DELETE to avoid 403 Forbidden on some servers
+app.post('/api/casas-religiosas/:id/delete', authenticateToken, async (req, res) => {
+  const { id } = req.params;
+  try {
+    // Get info for logging
+    const [rows] = await db.query('SELECT nome FROM tb_casas_religiosas WHERE id = ?', [id]);
+    const nome = rows.length > 0 ? rows[0].nome : `ID ${id}`;
+
+    await db.query('DELETE FROM tb_casas_religiosas WHERE id = ?', [id]);
+    await logAction(req.user.id, 'DELETAR_CASA_RELIGIOSA', 'tb_casas_religiosas', `Casa "${nome}" excluída (via POST)`);
+    res.json({ success: true });
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+});
+
 
 // Categories
 app.get('/api/categorias-financas', authenticateToken, async (req, res) => {
@@ -1604,12 +1634,80 @@ app.put('/api/financas-casa/consolidado/status/:casa_id/:mes', authenticateToken
          'INSERT INTO tb_financas_consolidado (casa_id, mes_referencia, status, apontamentos_economo, apontamentos_superior) VALUES (?, ?, ?, ?, ?)',
          [casa_id, mes, status, apontamentos_economo, apontamentos_superior]
        );
-    }
-    res.json({ success: true });
+});
+
+// --- Community Monthly Financials (Planilhas de Comunidade - Perfil 2) ---
+app.get('/api/financas-comunidade/:casa_id/:mes', authenticateToken, async (req, res) => {
+  const { casa_id, mes } = req.params;
+  try {
+    const [rows] = await db.query(
+      'SELECT * FROM tb_financas_consolidado WHERE casa_id = ? AND mes_referencia = ?',
+      [casa_id, mes]
+    );
+    if (rows.length === 0) return res.json(null);
+
+    const [itens] = await db.query(
+      'SELECT * FROM tb_financas_consolidado_itens WHERE consolidado_id = ?',
+      [rows[0].id]
+    );
+
+    res.json({ ...rows[0], itens });
   } catch (error) {
     res.status(500).json({ message: error.message });
   }
 });
+
+app.post('/api/financas-comunidade', authenticateToken, async (req, res) => {
+  const { casa_id, mes_referencia, total_credito, total_debito, num_missas_superior, anexo_path, status, itens } = req.body;
+  const connection = await db.getConnection();
+  try {
+    await connection.beginTransaction();
+
+    // Check if it exists
+    const [existing] = await connection.query(
+      'SELECT id, status FROM tb_financas_consolidado WHERE casa_id = ? AND mes_referencia = ?',
+      [casa_id, mes_referencia]
+    );
+
+    let consolidadoId;
+    if (existing.length > 0) {
+      consolidadoId = existing[0].id;
+      // Update
+      await connection.query(
+        'UPDATE tb_financas_consolidado SET total_credito = ?, total_debito = ?, num_missas_superior = ?, anexo_path = ?, status = ? WHERE id = ?',
+        [total_credito, total_debito, num_missas_superior, anexo_path, status || 'PENDENTE_ECONOMO', consolidadoId]
+      );
+      // Clean old items
+      await connection.query('DELETE FROM tb_financas_consolidado_itens WHERE consolidado_id = ?', [consolidadoId]);
+    } else {
+      // Insert new
+      const [result] = await connection.query(
+        'INSERT INTO tb_financas_consolidado (casa_id, mes_referencia, total_credito, total_debito, num_missas_superior, anexo_path, status) VALUES (?, ?, ?, ?, ?, ?, ?)',
+        [casa_id, mes_referencia, total_credito, total_debito, num_missas_superior, anexo_path, status || 'PENDENTE_ECONOMO']
+      );
+      consolidadoId = result.insertId;
+    }
+
+    // Insert new items
+    for (const item of itens) {
+      if (item.valor > 0) {
+        await connection.query(
+          'INSERT INTO tb_financas_consolidado_itens (consolidado_id, categoria_id, valor) VALUES (?, ?, ?)',
+          [consolidadoId, item.categoria_id, item.valor]
+        );
+      }
+    }
+
+    await connection.commit();
+    res.json({ success: true, id: consolidadoId });
+  } catch (error) {
+    await connection.rollback();
+    res.status(500).json({ message: error.message });
+  } finally {
+    connection.release();
+  }
+});
+
 
 app.put('/api/financas-mensais/:id/validar', authenticateToken, async (req, res) => {
   const { id } = req.params;

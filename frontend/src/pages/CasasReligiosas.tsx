@@ -116,7 +116,7 @@ const CasasReligiosas: React.FC = () => {
   const handleDeleteHouse = async (id: number) => {
     if (!window.confirm(t('common.confirm_delete') || 'Deseja excluir?')) return;
     try {
-      await api.delete(`/casas-religiosas/${id}`);
+      await api.post(`/casas-religiosas/${id}/delete`);
       await fetchHouses();
     } catch (err) {
       console.error('Error deleting house:', err);
