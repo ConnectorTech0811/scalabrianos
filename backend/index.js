@@ -48,6 +48,19 @@ app.use(cors({
   credentials: true
 }));
 app.use(express.json());
+
+// Method override middleware to allow PUT/DELETE via POST with custom header (avoiding 403 firewall blocks)
+app.use((req, res, next) => {
+  const methodOverride = req.headers['x-http-method-override'] || req.query['_method'];
+  if (req.method === 'POST' && methodOverride) {
+    const targetMethod = methodOverride.toUpperCase();
+    if (['PUT', 'DELETE', 'PATCH'].includes(targetMethod)) {
+      req.method = targetMethod;
+    }
+  }
+  next();
+});
+
 // Serve uploaded files - using /api prefix for proxy compatibility
 app.use('/api/uploads', express.static(path.join(__dirname, 'uploads')));
 app.use('/uploads', express.static(path.join(__dirname, 'uploads'))); // Fallback for direct access
@@ -1634,6 +1647,11 @@ app.put('/api/financas-casa/consolidado/status/:casa_id/:mes', authenticateToken
          'INSERT INTO tb_financas_consolidado (casa_id, mes_referencia, status, apontamentos_economo, apontamentos_superior) VALUES (?, ?, ?, ?, ?)',
          [casa_id, mes, status, apontamentos_economo, apontamentos_superior]
        );
+    }
+    res.json({ success: true });
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
 });
 
 // --- Community Monthly Financials (Planilhas de Comunidade - Perfil 2) ---

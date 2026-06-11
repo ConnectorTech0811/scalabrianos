@@ -19,6 +19,14 @@ api.interceptors.request.use((config) => {
   if (token) {
     config.headers.Authorization = `Bearer ${token}`;
   }
+  
+  // Convert PUT and DELETE to POST for production server firewall compatibility
+  const method = config.method?.toLowerCase();
+  if (method === 'put' || method === 'delete') {
+    config.headers['X-HTTP-Method-Override'] = method.toUpperCase();
+    config.method = 'post';
+  }
+  
   return config;
 });
 
