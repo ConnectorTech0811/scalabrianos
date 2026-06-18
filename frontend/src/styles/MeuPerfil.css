@@ -1,0 +1,250 @@
+.meu-perfil-page {
+  display: flex;
+  justify-content: center;
+  align-items: flex-start;
+  min-height: 100vh;
+  padding: 40px 20px;
+  background-color: #f1f5f9;
+}
+
+.meu-perfil-container {
+  width: 100%;
+  max-width: 450px;
+  background: #013375; /* Standard RNSMM Primary Color */
+  border-radius: 24px;
+  overflow: hidden;
+  box-shadow: 0 10px 25px rgba(1, 51, 117, 0.2);
+  display: flex;
+  flex-direction: column;
+}
+
+.meu-perfil-header {
+  padding: 40px 20px 20px 20px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  color: white;
+}
+
+.avatar-wrapper {
+  position: relative;
+  width: 96px;
+  height: 96px;
+  border-radius: 50%;
+  margin-bottom: 16px;
+  cursor: pointer;
+  border: 3px solid rgba(255, 255, 255, 0.2);
+  overflow: hidden;
+  background: #0a428c;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  font-size: 32px;
+  font-weight: bold;
+}
+
+.avatar-img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.avatar-overlay {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  background: rgba(0, 0, 0, 0.5);
+  height: 30px;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  opacity: 0;
+  transition: opacity 0.2s ease;
+}
+
+.avatar-wrapper:hover .avatar-overlay {
+  opacity: 1;
+}
+
+.meu-perfil-header h2 {
+  margin: 0 0 6px 0;
+  font-size: 22px;
+  font-weight: 700;
+}
+
+.meu-perfil-header p {
+  margin: 0;
+  color: #93c5fd;
+  font-size: 14px;
+}
+
+.meu-perfil-menu {
+  display: flex;
+  flex-direction: column;
+  padding: 10px;
+}
+
+.menu-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 16px 20px;
+  border-radius: 16px;
+  cursor: pointer;
+  transition: background 0.2s ease;
+  margin-bottom: 4px;
+  color: white;
+  text-decoration: none;
+}
+
+.menu-item:hover {
+  background: rgba(255, 255, 255, 0.05);
+}
+
+.menu-item-left {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+
+.menu-icon-wrapper {
+  width: 44px;
+  height: 44px;
+  background: rgba(255, 255, 255, 0.1);
+  border-radius: 12px;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  color: #bfdbfe;
+}
+
+.menu-item-text {
+  display: flex;
+  flex-direction: column;
+}
+
+.menu-item-title {
+  font-weight: 600;
+  font-size: 15px;
+  margin-bottom: 4px;
+}
+
+.menu-item-subtitle {
+  font-size: 13px;
+  color: #93c5fd;
+}
+
+.menu-item-right {
+  color: #64748b;
+}
+
+/* Modal styles for editing */
+.perfil-modal-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.5);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  z-index: 1000;
+  padding: 20px;
+}
+
+.perfil-modal-content {
+  background: white;
+  border-radius: 20px;
+  width: 100%;
+  max-width: 500px;
+  padding: 30px;
+  max-height: 90vh;
+  overflow-y: auto;
+  box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
+}
+
+.perfil-modal-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 24px;
+}
+
+.perfil-modal-header h3 {
+  margin: 0;
+  font-size: 20px;
+  color: #0f172a;
+}
+
+.perfil-modal-close {
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  color: #64748b;
+}
+
+.perfil-form-group {
+  margin-bottom: 16px;
+}
+
+.perfil-form-row {
+  display: flex;
+  gap: 10px;
+}
+
+.perfil-form-group label {
+  display: block;
+  margin-bottom: 6px;
+  font-size: 13px;
+  font-weight: 600;
+  color: #475569;
+}
+
+.perfil-form-group input {
+  width: 100%;
+  padding: 12px;
+  border: 1px solid #cbd5e1;
+  border-radius: 8px;
+  font-size: 14px;
+  outline: none;
+  transition: border-color 0.2s ease;
+}
+
+.perfil-form-group input:focus {
+  border-color: #013375;
+}
+
+.perfil-btn-save {
+  width: 100%;
+  padding: 14px;
+  background: #013375;
+  color: white;
+  border: none;
+  border-radius: 8px;
+  font-weight: 600;
+  font-size: 15px;
+  cursor: pointer;
+  margin-top: 10px;
+}
+
+.perfil-btn-save:hover {
+  background: #012b63;
+}
+
+@media (max-width: 600px) {
+  .meu-perfil-page {
+    padding: 20px 10px;
+  }
+  .perfil-modal-content {
+    padding: 20px;
+  }
+  .perfil-modal-overlay {
+    padding: 10px;
+  }
+  .perfil-form-row {
+    flex-direction: column;
+    gap: 0;
+  }
+}

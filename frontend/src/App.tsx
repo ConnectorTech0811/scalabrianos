@@ -16,6 +16,8 @@ import Logs from './pages/Logs';
 import LogsAcesso from './pages/LogsAcesso';
 import Relatorios from './pages/Relatorios';
 import Financeiro from './pages/Financeiro';
+import ExtratosMensais from './pages/ExtratosMensais';
+import MeuPerfil from './pages/MeuPerfil';
 import GestaoFinanceira from './pages/GestaoFinanceira';
 import MapaRNSMM from './pages/MapaRNSMM';
 import ForgotPassword from './pages/ForgotPassword';
@@ -106,6 +108,12 @@ function App() {
               <MainLayout><Financeiro /></MainLayout>
             </ProtectedRoute>
           } />
+          
+          <Route path="/extratos-mensais" element={
+            <ProtectedRoute>
+              <MainLayout><ExtratosMensais /></MainLayout>
+            </ProtectedRoute>
+          } />
 
           {/* Gestão Financeira — only for admins, oconomo, superior */}
           <Route path="/gestao-financeira" element={
@@ -123,6 +131,14 @@ function App() {
           <Route path="/relatorios" element={
             <ProtectedRoute requireAdmin>
               <MainLayout><Relatorios /></MainLayout>
+            </ProtectedRoute>
+          } />
+
+          <Route path="/meu-perfil" element={
+            <ProtectedRoute>
+              <MainLayout>
+                <MeuPerfil />
+              </MainLayout>
             </ProtectedRoute>
           } />
 

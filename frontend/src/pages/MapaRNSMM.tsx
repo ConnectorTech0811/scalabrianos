@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Info, Globe, Building, Users, Heart, ExternalLink, Loader2, Home as HouseIcon, Activity, Star, School } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { useNavigate } from 'react-router-dom';
+import { useAuth } from '../context/AuthContext';
 import api from '../api';
 import '../styles/Relatorios.css';
 
@@ -16,6 +17,8 @@ interface DashboardStats {
 const MapaRNSMM: React.FC = () => {
   const { t } = useTranslation();
   const navigate = useNavigate();
+  const { isAdminGeral, isRegional, canEdit } = useAuth();
+  const isAdm = isAdminGeral || isRegional || canEdit;
   const address = "R. Dr. Mário Vicente, 1108 - Ipiranga, São Paulo - SP, 04270-001";
   const googleMapsUrl = `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(address)}`;
 
@@ -74,40 +77,44 @@ const MapaRNSMM: React.FC = () => {
       </div>
 
       {/* Main Stats Row */}
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '1.5rem', marginBottom: '1rem' }}>
-        <div className="card-lite" onClick={() => navigate('/missionarios')} style={{ cursor: 'pointer', padding: '1.5rem', borderRadius: '16px', display: 'flex', flexDirection: 'column', alignItems: 'center', textAlign: 'center', border: '1px solid #e2e8f0' }}>
-            <span style={{ fontSize: '1rem', fontWeight: 700, color: '#64748b', marginBottom: '8px' }}>Missionários</span>
-            <span style={{ fontSize: '2.5rem', fontWeight: 900, color: '#013375' }}>{statsData?.totalUsers || 0}</span>
+      {isAdm && (
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '1.5rem', marginBottom: '1rem' }}>
+          <div className="card-lite" onClick={() => navigate('/missionarios')} style={{ cursor: 'pointer', padding: '1.5rem', borderRadius: '16px', display: 'flex', flexDirection: 'column', alignItems: 'center', textAlign: 'center', border: '1px solid #e2e8f0' }}>
+              <span style={{ fontSize: '1rem', fontWeight: 700, color: '#64748b', marginBottom: '8px' }}>Missionários</span>
+              <span style={{ fontSize: '2.5rem', fontWeight: 900, color: '#013375' }}>{statsData?.totalUsers || 0}</span>
+          </div>
+          <div className="card-lite" onClick={() => navigate('/itinerario-formativo')} style={{ cursor: 'pointer', padding: '1.5rem', borderRadius: '16px', display: 'flex', flexDirection: 'column', alignItems: 'center', textAlign: 'center', border: '1px solid #e2e8f0' }}>
+              <span style={{ fontSize: '1rem', fontWeight: 700, color: '#64748b', marginBottom: '8px' }}>Religiosos / Seminaristas</span>
+              <span style={{ fontSize: '2.5rem', fontWeight: 900, color: '#013375' }}>{statsData?.totalItineraries || 0}</span>
+          </div>
+          <div className="card-lite" onClick={() => navigate('/casas-religiosas')} style={{ cursor: 'pointer', padding: '1.5rem', borderRadius: '16px', display: 'flex', flexDirection: 'column', alignItems: 'center', textAlign: 'center', border: '1px solid #e2e8f0' }}>
+              <span style={{ fontSize: '1rem', fontWeight: 700, color: '#64748b', marginBottom: '8px' }}>Presença Missionária</span>
+              <span style={{ fontSize: '2.5rem', fontWeight: 900, color: '#013375' }}>{statsData?.totalHouses || 0}</span>
+          </div>
         </div>
-        <div className="card-lite" onClick={() => navigate('/itinerario-formativo')} style={{ cursor: 'pointer', padding: '1.5rem', borderRadius: '16px', display: 'flex', flexDirection: 'column', alignItems: 'center', textAlign: 'center', border: '1px solid #e2e8f0' }}>
-            <span style={{ fontSize: '1rem', fontWeight: 700, color: '#64748b', marginBottom: '8px' }}>Religiosos / Seminaristas</span>
-            <span style={{ fontSize: '2.5rem', fontWeight: 900, color: '#013375' }}>{statsData?.totalItineraries || 0}</span>
-        </div>
-        <div className="card-lite" onClick={() => navigate('/casas-religiosas')} style={{ cursor: 'pointer', padding: '1.5rem', borderRadius: '16px', display: 'flex', flexDirection: 'column', alignItems: 'center', textAlign: 'center', border: '1px solid #e2e8f0' }}>
-            <span style={{ fontSize: '1rem', fontWeight: 700, color: '#64748b', marginBottom: '8px' }}>Presença Missionária</span>
-            <span style={{ fontSize: '2.5rem', fontWeight: 900, color: '#013375' }}>{statsData?.totalHouses || 0}</span>
-        </div>
-      </div>
+      )}
 
       {/* Presença Missionária Detailed Breakdown */}
-      <div className="card-lite" style={{ padding: '2rem', borderRadius: '24px', border: '1px solid #fee2e2' }}>
-        <h3 style={{ margin: '0 0 2rem', textAlign: 'center', color: '#013375', fontSize: '1.25rem', fontWeight: 800 }}>Presença Missionária</h3>
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '1.5rem' }}>
-            {[
-                { label: 'Casas Religiosas (CR)', count: statsData?.housesByType?.CR || 0, icon: <HouseIcon size={20} />, type: 'CR' },
-                { label: 'Casas de Idosos (CI)', count: statsData?.housesByType?.CI || 0, icon: <Activity size={20} />, type: 'CI' },
-                { label: 'Obras (M)', count: statsData?.housesByType?.M || 0, icon: <Heart size={20} />, type: 'M' },
-                { label: 'Paróquias/Igrejas (P)', count: statsData?.housesByType?.P || 0, icon: <Globe size={20} />, type: 'P' },
-                { label: 'Pastoral Vocacional (PV)', count: statsData?.housesByType?.PV || 0, icon: <Star size={20} />, type: 'PV' },
-                { label: 'Seminários (CS)', count: statsData?.housesByType?.CS || 0, icon: <School size={20} />, type: 'CS' },
-            ].map((item, idx) => (
-                <div key={idx} onClick={() => navigate('/casas-religiosas')} style={{ cursor: 'pointer', padding: '15px', border: '1px solid #10b981', borderRadius: '8px', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '8px', background: 'white' }}>
-                    <span style={{ color: '#10b981', fontWeight: 700, fontSize: '0.9rem', textAlign: 'center' }}>{item.label}</span>
-                    <span style={{ fontSize: '1.5rem', fontWeight: 800, color: '#1e293b' }}>{item.count}</span>
-                </div>
-            ))}
+      {isAdm && (
+        <div className="card-lite" style={{ padding: '2rem', borderRadius: '24px', border: '1px solid #fee2e2' }}>
+          <h3 style={{ margin: '0 0 2rem', textAlign: 'center', color: '#013375', fontSize: '1.25rem', fontWeight: 800 }}>Presença Missionária</h3>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '1.5rem' }}>
+              {[
+                  { label: 'Casas Religiosas (CR)', count: statsData?.housesByType?.CR || 0, icon: <HouseIcon size={20} />, type: 'CR' },
+                  { label: 'Casas de Idosos (CI)', count: statsData?.housesByType?.CI || 0, icon: <Activity size={20} />, type: 'CI' },
+                  { label: 'Obras (M)', count: statsData?.housesByType?.M || 0, icon: <Heart size={20} />, type: 'M' },
+                  { label: 'Paróquias/Igrejas (P)', count: statsData?.housesByType?.P || 0, icon: <Globe size={20} />, type: 'P' },
+                  { label: 'Pastoral Vocacional (PV)', count: statsData?.housesByType?.PV || 0, icon: <Star size={20} />, type: 'PV' },
+                  { label: 'Seminários (CS)', count: statsData?.housesByType?.CS || 0, icon: <School size={20} />, type: 'CS' },
+              ].map((item, idx) => (
+                  <div key={idx} onClick={() => navigate('/casas-religiosas')} style={{ cursor: 'pointer', padding: '15px', border: '1px solid #10b981', borderRadius: '8px', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '8px', background: 'white' }}>
+                      <span style={{ color: '#10b981', fontWeight: 700, fontSize: '0.9rem', textAlign: 'center' }}>{item.label}</span>
+                      <span style={{ fontSize: '1.5rem', fontWeight: 800, color: '#1e293b' }}>{item.count}</span>
+                  </div>
+              ))}
+          </div>
         </div>
-      </div>
+      )}
 
       <div className="map-full-card card-lite" style={{ padding: '0', overflow: 'hidden', display: 'flex', flexDirection: 'column', borderRadius: '24px', boxShadow: '0 10px 30px rgba(0,0,0,0.08)' }}>
         <div style={{ padding: '1.75rem 2.5rem', borderBottom: '1px solid #e2e8f0', display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: 'white' }}>

@@ -77,8 +77,11 @@
     right: 1.25rem;
     top: 50%;
     transform: translateY(-50%);
-    background: none;
+    background: transparent !important;
     border: none;
+    box-shadow: none !important;
+    outline: none !important;
+    padding: 0;
     cursor: pointer;
     color: #94a3b8;
     display: flex;

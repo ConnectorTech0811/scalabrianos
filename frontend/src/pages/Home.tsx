@@ -6,6 +6,7 @@ import {
 import { useTranslation } from 'react-i18next';
 import { useNavigate } from 'react-router-dom';
 import api from '../api';
+import { useAuth } from '../context/AuthContext';
 import '../styles/Home.css';
 
 interface DashboardStats {
@@ -22,6 +23,8 @@ interface DashboardStats {
 const Home: React.FC = () => {
   const { t } = useTranslation();
   const navigate = useNavigate();
+  const { isAdminGeral, isRegional, canEdit } = useAuth();
+  const isAdm = isAdminGeral || isRegional || canEdit;
   const [statsData, setStatsData] = useState<DashboardStats | null>(null);
   const [isLoading, setIsLoading] = useState(true);
 
@@ -66,24 +69,26 @@ const Home: React.FC = () => {
         </div>
       </div>
 
-      <div className="stats-grid" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))' }}>
-        {stats.map((stat, index) => (
-          <div 
-            key={index} 
-            className="stat-card" 
-            style={{ cursor: stat.path ? 'pointer' : 'default' }}
-            onClick={() => stat.path && navigate(stat.path)}
-          >
-            <div className="stat-icon" style={{ color: stat.color }}>
-              {stat.icon}
+      {isAdm && (
+        <div className="stats-grid" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))' }}>
+          {stats.map((stat, index) => (
+            <div 
+              key={index} 
+              className="stat-card" 
+              style={{ cursor: stat.path ? 'pointer' : 'default' }}
+              onClick={() => stat.path && navigate(stat.path)}
+            >
+              <div className="stat-icon" style={{ color: stat.color }}>
+                {stat.icon}
+              </div>
+              <div className="stat-info">
+                <span className="stat-value">{stat.value}</span>
+                <span className="stat-label">{stat.label}</span>
+              </div>
             </div>
-            <div className="stat-info">
-              <span className="stat-value">{stat.value}</span>
-              <span className="stat-label">{stat.label}</span>
-            </div>
-          </div>
-        ))}
-      </div>
+          ))}
+        </div>
+      )}
 
       <div className="dashboard-content" style={{ display: 'grid', gridTemplateColumns: '2fr 1fr', gap: '24px' }}>
         <div className="map-section card-lite" style={{ padding: '0', overflow: 'hidden', minHeight: '400px', display: 'flex', flexDirection: 'column' }}>

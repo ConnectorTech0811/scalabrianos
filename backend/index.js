@@ -202,7 +202,8 @@ app.post('/api/login', async (req, res) => {
         role: user.role,
         is_superior: !!user.is_superior,
         is_oconomo: !!user.is_oconomo,
-        casa_id: casaId
+        casa_id: casaId,
+        foto_perfil: user.foto_perfil
       },
       token
     });
@@ -445,6 +446,88 @@ if (!fs.existsSync(uploadsDataDir)) {
 
 // Generic CRUD endpoints for tables
 // Users
+// --- MEU PERFIL ROUTES ---
+app.get('/api/meu-perfil', authenticateToken, async (req, res) => {
+  const userId = req.user.id;
+  try {
+    const [usuarios] = await db.query('SELECT nome, login, foto_perfil FROM tb_usuarios WHERE id = ?', [userId]);
+    const [enderecos] = await db.query('SELECT * FROM tb_enderecos_contatos WHERE usuario_id = ?', [userId]);
+    const [contas] = await db.query('SELECT * FROM tb_contas_bancarias WHERE usuario_id = ?', [userId]);
+    res.json({
+      perfil: usuarios[0],
+      endereco: enderecos[0] || null,
+      contaBancaria: contas[0] || null
+    });
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+});
+
+app.put('/api/meu-perfil', authenticateToken, async (req, res) => {
+  const userId = req.user.id;
+  const { nome } = req.body;
+  try {
+    if (nome) await db.query('UPDATE tb_usuarios SET nome = ? WHERE id = ?', [nome, userId]);
+    res.json({ success: true });
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+});
+
+app.post('/api/meu-perfil/foto', authenticateToken, upload.single('foto'), async (req, res) => {
+  if (!req.file) return res.status(400).json({ message: 'Nenhuma foto enviada' });
+  const userId = req.user.id;
+  const fotoPath = `/uploads/documentos/${req.file.filename}`;
+  try {
+    await db.query('UPDATE tb_usuarios SET foto_perfil = ? WHERE id = ?', [fotoPath, userId]);
+    res.json({ success: true, foto_perfil: fotoPath });
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+});
+
+app.delete('/api/meu-perfil/foto', authenticateToken, async (req, res) => {
+  const userId = req.user.id;
+  try {
+    await db.query('UPDATE tb_usuarios SET foto_perfil = NULL WHERE id = ?', [userId]);
+    res.json({ success: true });
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+});
+
+app.put('/api/meu-perfil/endereco', authenticateToken, async (req, res) => {
+  const userId = req.user.id;
+  const { logradouro, complemento, bairro, cep, cidade_estado, celular_whatsapp, telefone_fixo, email_pessoal } = req.body;
+  try {
+    const [existing] = await db.query('SELECT * FROM tb_enderecos_contatos WHERE usuario_id = ?', [userId]);
+    if (existing.length > 0) {
+      await db.query(`UPDATE tb_enderecos_contatos SET logradouro=?, complemento=?, bairro=?, cep=?, cidade_estado=?, celular_whatsapp=?, telefone_fixo=?, email_pessoal=? WHERE usuario_id=?`, [logradouro, complemento, bairro, cep, cidade_estado, celular_whatsapp, telefone_fixo, email_pessoal, userId]);
+    } else {
+      await db.query(`INSERT INTO tb_enderecos_contatos (usuario_id, logradouro, complemento, bairro, cep, cidade_estado, celular_whatsapp, telefone_fixo, email_pessoal) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`, [userId, logradouro, complemento, bairro, cep, cidade_estado, celular_whatsapp, telefone_fixo, email_pessoal]);
+    }
+    res.json({ success: true });
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+});
+
+app.put('/api/meu-perfil/conta', authenticateToken, async (req, res) => {
+  const userId = req.user.id;
+  const { tipo_conta, titularidade, agencia, numero } = req.body;
+  try {
+    const [existing] = await db.query('SELECT * FROM tb_contas_bancarias WHERE usuario_id = ?', [userId]);
+    if (existing.length > 0) {
+      await db.query(`UPDATE tb_contas_bancarias SET tipo_conta=?, titularidade=?, agencia=?, numero=? WHERE id=?`, [tipo_conta, titularidade, agencia, numero, existing[0].id]);
+    } else {
+      await db.query(`INSERT INTO tb_contas_bancarias (usuario_id, tipo_conta, titularidade, agencia, numero) VALUES (?, ?, ?, ?, ?)`, [userId, tipo_conta, titularidade, agencia, numero]);
+    }
+    res.json({ success: true });
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+});
+
 app.get('/api/usuarios', authenticateToken, async (req, res) => {
   try {
     const [rows] = await db.query(`
@@ -1547,6 +1630,53 @@ app.get('/api/financas-mensais/usuario/:usuario_id/mes/:mes', authenticateToken,
   }
 });
 
+app.get('/api/financas-mensais/usuario/:id/extratos', authenticateToken, async (req, res) => {
+  const { id } = req.params;
+  try {
+    const [rows] = await db.query(`
+      SELECT id, mes_referencia, total_credito, total_debito, (total_credito - total_debito) as saldo, updated_at as data_validacao
+      FROM tb_financas_mensais
+      WHERE usuario_id = ? AND status = 'VALIDADO'
+      ORDER BY created_at DESC
+    `, [id]);
+    res.json(rows);
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+});
+
+app.get('/api/financas-mensais/pendentes/casa/:casa_id', authenticateToken, async (req, res) => {
+  const { casa_id } = req.params;
+  try {
+    const [rows] = await db.query(`
+      SELECT p.id, p.usuario_id, u.nome as nome_missionario, p.mes_referencia, p.status, p.updated_at
+      FROM tb_financas_mensais p
+      JOIN tb_usuarios u ON p.usuario_id = u.id
+      WHERE p.casa_id = ? AND p.status = 'PENDENTE'
+      ORDER BY p.updated_at DESC
+    `, [casa_id]);
+    res.json(rows);
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+});
+
+app.get('/api/financas-mensais/historico/casa/:casa_id', authenticateToken, async (req, res) => {
+  const { casa_id } = req.params;
+  try {
+    const [rows] = await db.query(`
+      SELECT p.id, p.usuario_id, u.nome as nome_missionario, p.mes_referencia, p.status, p.updated_at
+      FROM tb_financas_mensais p
+      JOIN tb_usuarios u ON p.usuario_id = u.id
+      WHERE p.casa_id = ? AND p.status IN ('VALIDADO', 'DEVOLVIDO')
+      ORDER BY p.updated_at DESC
+    `, [casa_id]);
+    res.json(rows);
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+});
+
 app.post('/api/financas-mensais', authenticateToken, async (req, res) => {
   const { usuario_id, casa_id, mes_referencia, itens, total_credito, total_debito, num_missas_superior, anexo_path, obs_receita, obs_despesa } = req.body;
   const connection = await db.getConnection();
@@ -1593,6 +1723,25 @@ app.post('/api/financas-mensais', authenticateToken, async (req, res) => {
       SET lida = TRUE 
       WHERE usuario_id = ? AND mensagem LIKE ?
     `, [usuario_id, `%planilha de ${mes_referencia} foi devolvida%`]);
+
+    // Notificação ao Ecônomo Local
+    if (casa_id) {
+      const [oconomos] = await connection.query(`
+        SELECT u.id 
+        FROM tb_usuarios u
+        JOIN tb_missionario_casas mc ON u.id = mc.usuario_id
+        WHERE mc.casa_id = ? AND u.is_oconomo = 1 AND u.id != ? AND (mc.data_fim IS NULL OR mc.data_fim >= CURDATE())
+      `, [casa_id, usuario_id]);
+      const [missionario] = await connection.query('SELECT nome FROM tb_usuarios WHERE id = ?', [usuario_id]);
+      const missNome = missionario[0]?.nome || 'Um missionário';
+      
+      for (const oc of oconomos) {
+        await connection.query(
+          'INSERT INTO tb_notificacoes (usuario_id, mensagem, tipo, link_path) VALUES (?, ?, ?, ?)',
+          [oc.id, `${missNome} acabou de finalizar e enviou sua planilha de ${mes_referencia} para que você valide e faça suas considerações!`, 'SISTEMA', '/financeiro']
+        );
+      }
+    }
 
     res.json({ success: true, id: planilhaId });
   } catch (error) {

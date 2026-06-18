@@ -409,11 +409,19 @@ const Missionarios: React.FC = () => {
     const effectivePassword = wizardData.password?.trim() || 'Scalab@10';
     setSaveLoading(true);
     try {
+      // Auto-resolve global boolean flags based on presence functions
+      const hasOconomoLocal = casasVinculos.some(v => Array.isArray(v.funcao) ? v.funcao.includes('Ecônomo Local') : String(v.funcao).includes('Ecônomo Local'));
+      const hasSuperiorLocal = casasVinculos.some(v => v.is_superior || (Array.isArray(v.funcao) ? v.funcao.includes('Superior Local') : String(v.funcao).includes('Superior Local')));
+      
+      const effectiveIsOconomo = wizardData.is_oconomo || hasOconomoLocal;
+      const effectiveIsSuperior = wizardData.is_superior || hasSuperiorLocal;
+
       // 1 — Create user
       const userRes = await api.post('/usuarios', {
         nome: wizardData.nome, login: wizardData.login, password: effectivePassword,
         role: 'PADRE', status: wizardData.status, situacao: wizardData.situacao,
-        is_oconomo: wizardData.is_oconomo, is_superior: wizardData.is_superior,
+        is_oconomo: effectiveIsOconomo, is_superior: effectiveIsSuperior,
+        permissoes: wizardData.permissoes,
       });
       const newId = userRes.data.id;
 

@@ -1,32 +1,28 @@
-const pool = require('./db');
+const mysql = require('mysql2/promise');
+require('dotenv').config();
 
-async function runMigration13() {
-  const cols = [
-    { name: 'data_batismo',          sql: `ALTER TABLE tb_dados_religiosos ADD COLUMN IF NOT EXISTS data_batismo DATE` },
-    { name: 'doc_batismo',           sql: `ALTER TABLE tb_dados_religiosos ADD COLUMN IF NOT EXISTS doc_batismo VARCHAR(500)` },
-    { name: 'data_primeira_comunhao',sql: `ALTER TABLE tb_dados_religiosos ADD COLUMN IF NOT EXISTS data_primeira_comunhao DATE` },
-    { name: 'doc_primeira_comunhao', sql: `ALTER TABLE tb_dados_religiosos ADD COLUMN IF NOT EXISTS doc_primeira_comunhao VARCHAR(500)` },
-    { name: 'data_crisma',           sql: `ALTER TABLE tb_dados_religiosos ADD COLUMN IF NOT EXISTS data_crisma DATE` },
-    { name: 'doc_crisma',            sql: `ALTER TABLE tb_dados_religiosos ADD COLUMN IF NOT EXISTS doc_crisma VARCHAR(500)` },
-  ];
+async function runMigration() {
+  const connection = await mysql.createConnection({
+    host: process.env.DB_HOST || 'localhost',
+    port: process.env.DB_PORT || 3306,
+    user: process.env.DB_USER || 'root',
+    password: process.env.DB_PASSWORD || '',
+    database: process.env.DB_NAME || 'db_scalabrianos'
+  });
 
   try {
-    console.log('Starting Migration v13 — Sacramentos (Batismo, 1ª Comunhão, Crisma)...');
-    for (const col of cols) {
-      try {
-        await pool.query(col.sql);
-        console.log(`SUCCESS: ${col.name} added`);
-      } catch (e) {
-        if (e.code === 'ER_DUP_FIELDNAME') console.log(`SKIP: ${col.name} already exists`);
-        else throw e;
-      }
-    }
-    console.log('Migration v13 completed!');
-    process.exit(0);
+    console.log('Starting migration 13...');
+    await connection.query(`ALTER TABLE tb_usuarios ADD COLUMN foto_perfil VARCHAR(500) DEFAULT NULL`);
+    console.log('Added foto_perfil to tb_usuarios successfully.');
   } catch (error) {
-    console.error('Migration v13 failed:', error);
-    process.exit(1);
+    if (error.code === 'ER_DUP_FIELDNAME') {
+      console.log('Column foto_perfil already exists.');
+    } else {
+      console.error('Migration failed:', error);
+    }
+  } finally {
+    await connection.end();
   }
 }
 
-runMigration13();
+runMigration();

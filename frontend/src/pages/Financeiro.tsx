@@ -4,6 +4,7 @@ import { useTranslation } from 'react-i18next';
 import api from '../api';
 import PlanilhaMensal from '../components/Financeiro/PlanilhaMensal';
 import PlanilhaComunidade from '../components/Financeiro/PlanilhaComunidade';
+import ValidacoesOconomo from '../components/Financeiro/ValidacoesOconomo';
 import PlanejamentoOrcamentario from '../components/Financeiro/PlanejamentoOrcamentario';
 import PrestacaoContasAnual from '../components/Financeiro/PrestacaoContasAnual';
 import { useAuth } from '../context/AuthContext';
@@ -26,19 +27,32 @@ interface Casa {
 
 const Financeiro: React.FC = () => {
   const { t } = useTranslation();
-  const { isAdminGeral, isOconomo, isSuperior, isPadre } = useAuth();
+  const { isAdminGeral, isOconomo, isSuperior, isPadre, user } = useAuth();
   const [casas, setCasas] = useState<Casa[]>([]);
   const [categorias, setCategorias] = useState<Categoria[]>([]);
-  const [activeTab, setActiveTab] = useState<'individual' | 'comunidade' | 'planejamento' | 'anual'>('comunidade');
+
+  // Read is_oconomo and is_superior directly from the user object as a safety fallback
+  // in case the derived boolean from AuthContext has a derivation issue.
+  const rawIsOconomo = !!user?.is_oconomo;
+  const rawIsSuperior = !!user?.is_superior;
+  const effectiveIsOconomo = isOconomo || rawIsOconomo;
+  const effectiveIsSuperior = isSuperior || rawIsSuperior;
+
+  // Default tab: individual users land on their own spreadsheet;
+  // admins (ADMIN_GERAL) go straight to the community/admin tab.
+  const [activeTab, setActiveTab] = useState<'individual' | 'comunidade' | 'planejamento' | 'anual' | 'validacoes_pendentes' | 'historico_aprovacoes'>(
+    isAdminGeral ? 'comunidade' : 'individual'
+  );
 
   useEffect(() => {
-    if (activeTab === 'comunidade' && !isAdminGeral && !isOconomo && !isSuperior && isPadre) {
+    // Common missionaries (no authority role) are forced to individual
+    if (!isAdminGeral && !effectiveIsOconomo && !effectiveIsSuperior && isPadre) {
       setActiveTab('individual');
     }
-  }, [isAdminGeral, isOconomo, isSuperior, isPadre]);
+  }, [isAdminGeral, effectiveIsOconomo, effectiveIsSuperior, isPadre]);
 
-  const isCommonPadre = isPadre && !isOconomo && !isSuperior;
-  const isLocalAuthority = isOconomo || isSuperior;
+  const isCommonPadre = isPadre && !effectiveIsOconomo && !effectiveIsSuperior;
+  const isLocalAuthority = effectiveIsOconomo || effectiveIsSuperior;
 
   useEffect(() => {
     const fetchInitialData = async () => {
@@ -66,44 +80,99 @@ const Financeiro: React.FC = () => {
       </div>
 
       {!isCommonPadre && (
-        <div className="view-mode-tabs" style={{ marginBottom: '20px' }}>
-          {!isAdminGeral && (
-            <button 
-              className={`mode-btn ${activeTab === 'individual' ? 'active' : ''}`} 
-              onClick={() => setActiveTab('individual')}
+        <>
+          <div className="view-mode-tabs" style={{ margin: '0 auto 8px auto' }}>
+            {/* Individual tab: all non-adminGeral priests (including oconomo) */}
+            {!isAdminGeral && (
+              <button
+                className={`mode-btn ${activeTab === 'individual' ? 'active' : ''}`}
+                onClick={() => setActiveTab('individual')}
+              >
+                {t('planilha.individual_title')}
+              </button>
+            )}
+            <button
+              className={`mode-btn ${activeTab === 'comunidade' ? 'active' : ''}`}
+              onClick={() => setActiveTab('comunidade')}
             >
-              {t('planilha.individual_title')}
+              {t('planilha.comunidade_title')}
             </button>
+            {isOconomo && (
+              <>
+                <button
+                  className={`mode-btn ${activeTab === 'validacoes_pendentes' ? 'active' : ''}`}
+                  onClick={() => setActiveTab('validacoes_pendentes')}
+                >
+                  Validações Pendentes
+                </button>
+                <button
+                  className={`mode-btn ${activeTab === 'historico_aprovacoes' ? 'active' : ''}`}
+                  onClick={() => setActiveTab('historico_aprovacoes')}
+                >
+                  Histórico de Aprovações
+                </button>
+              </>
+            )}
+            {isAdminGeral && (
+              <>
+                <button
+                  className={`mode-btn ${activeTab === 'planejamento' ? 'active' : ''}`}
+                  onClick={() => setActiveTab('planejamento')}
+                >
+                  {t('menu.finance')}
+                </button>
+                <button
+                  className={`mode-btn ${activeTab === 'anual' ? 'active' : ''}`}
+                  onClick={() => setActiveTab('anual')}
+                >
+                  Anual
+                </button>
+              </>
+            )}
+          </div>
+
+          {/* Contextual hint for the Economo Local */}
+          {isOconomo && !isAdminGeral && (
+            <div style={{
+              marginBottom: '20px',
+              padding: '10px 16px',
+              borderRadius: '8px',
+              background: activeTab === 'individual'
+                ? 'linear-gradient(90deg,#eff6ff,#dbeafe)'
+                : 'linear-gradient(90deg,#f0fdf4,#dcfce7)',
+              border: `1px solid ${activeTab === 'individual' ? '#93c5fd' : '#86efac'}`,
+              display: 'flex',
+              alignItems: 'center',
+              gap: '10px',
+              fontSize: '13px',
+              color: activeTab === 'individual' ? '#1e40af' : '#166534',
+            }}>
+              <span style={{ fontSize: '16px' }}>{activeTab === 'individual' ? '👤' : '🏠'}</span>
+              {activeTab === 'individual' ? (
+                <span>
+                  <strong>Prestação de Contas — Missionário:</strong> sua planilha individual mensal.
+                  Após preencher, finalize e envie para conferência.
+                </span>
+              ) : (
+                <span>
+                  <strong>Planilha da Comunidade/Casa Religiosa:</strong> consolida os valores individuais
+                  dos missionários com os da casa. Preencha e encaminhe para aprovação do <strong>Ecônomo Regional (SEDE)</strong>.
+                </span>
+              )}
+            </div>
           )}
-          <button 
-            className={`mode-btn ${activeTab === 'comunidade' ? 'active' : ''}`} 
-            onClick={() => setActiveTab('comunidade')}
-          >
-            {t('planilha.comunidade_title')}
-          </button>
-          {isAdminGeral && (
-            <>
-              <button 
-                className={`mode-btn ${activeTab === 'planejamento' ? 'active' : ''}`} 
-                onClick={() => setActiveTab('planejamento')}
-              >
-                {t('menu.finance')}
-              </button>
-              <button 
-                className={`mode-btn ${activeTab === 'anual' ? 'active' : ''}`} 
-                onClick={() => setActiveTab('anual')}
-              >
-                Anual
-              </button>
-            </>
-          )}
-        </div>
+        </>
       )}
 
-      {activeTab === 'individual' && !isAdminGeral && <PlanilhaMensal casas={casas} categorias={categorias} />}
-      {activeTab === 'comunidade' && (isAdminGeral || isLocalAuthority) && <PlanilhaComunidade casas={casas} categorias={categorias} />}
-      {activeTab === 'planejamento' && isAdminGeral && <PlanejamentoOrcamentario casas={casas} categorias={categorias.filter(c => c.perfil === 'PLANEJAMENTO')} />}
-      {activeTab === 'anual' && isAdminGeral && <PrestacaoContasAnual casas={casas} categorias={categorias.filter(c => c.perfil === 'ANUAL')} />}
+      {/* Tab content */}
+      <div className="tab-content" style={{ marginTop: '16px' }}>
+        {activeTab === 'individual' && !isAdminGeral && <PlanilhaMensal casas={casas} categorias={categorias} />}
+        {activeTab === 'comunidade' && (isAdminGeral || isLocalAuthority) && <PlanilhaComunidade casas={casas} categorias={categorias} />}
+        {activeTab === 'planejamento' && isAdminGeral && <PlanejamentoOrcamentario casas={casas} categorias={categorias.filter(c => c.perfil === 'PLANEJAMENTO')} />}
+        {activeTab === 'anual' && isAdminGeral && <PrestacaoContasAnual casas={casas} categorias={categorias.filter(c => c.perfil === 'ANUAL')} />}
+        {activeTab === 'validacoes_pendentes' && isOconomo && <ValidacoesOconomo casas={casas} categorias={categorias} tipo="pendentes" />}
+        {activeTab === 'historico_aprovacoes' && isOconomo && <ValidacoesOconomo casas={casas} categorias={categorias} tipo="historico" />}
+      </div>
     </div>
   );
 };

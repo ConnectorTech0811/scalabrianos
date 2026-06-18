@@ -37,3 +37,18 @@
     gap: 1.5rem;
     box-sizing: border-box;
 }
+
+@media (max-width: 768px) {
+    .main-content {
+        margin-left: 0;
+        width: 100%;
+        min-height: calc(100vh - 80px); /* header is smaller on mobile */
+    }
+    .layout-body {
+        margin-top: 80px;
+    }
+    .page-container {
+        padding: 1rem;
+        gap: 1rem;
+    }
+}

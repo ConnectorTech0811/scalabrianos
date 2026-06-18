@@ -7,6 +7,7 @@ import { useLayout } from '../../context/LayoutContext';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { useAuth } from '../../context/AuthContext';
+import api from '../../api';
 import '../../styles/Sidebar.css';
 
 interface SubItem {
@@ -24,11 +25,17 @@ interface MenuItem {
 }
 
 const Sidebar: React.FC = () => {
-  const { isSidebarOpen } = useLayout();
   const { t } = useTranslation();
   const navigate = useNavigate();
   const location = useLocation();
-  const { isAdminGeral, canEdit, isRegional } = useAuth();
+  const { user, isAdminGeral, canEdit, isRegional } = useAuth();
+  const { isSidebarOpen, toggleSidebar } = useLayout();
+  const getInitials = (name: string) => {
+    if (!name) return '??';
+    const parts = name.split(' ');
+    if (parts.length >= 2) return `${parts[0][0]}${parts[1][0]}`.toUpperCase();
+    return name.substring(0, 2).toUpperCase();
+  };
 
   const [openSections, setOpenSections] = useState<Record<string, boolean>>({
     [t('menu.admin')]: true,
@@ -53,6 +60,7 @@ const Sidebar: React.FC = () => {
 
   // 3. Prestação de Contas
   menuItems.push({ icon: <DollarSign size={20} />, label: t('menu.finance'), path: '/financeiro' });
+  menuItems.push({ icon: <ClipboardList size={20} />, label: 'Extratos Mensais', path: '/extratos-mensais' });
 
   // 4. Mapa RNSMM
   menuItems.push({ icon: <Globe size={20} />, label: t('menu.map'), path: '/mapa' });
@@ -75,7 +83,6 @@ const Sidebar: React.FC = () => {
 
 
 
-  if (!isSidebarOpen) return null;
 
   const renderMenuItems = (items: (MenuItem | SubItem)[], level = 0) => {
     return items.map((item, index) => {
@@ -114,12 +121,25 @@ const Sidebar: React.FC = () => {
   };
 
   return (
-    <div className="sidebar">
-      <div className="sidebar-items">
+    <>
+      <div className={`sidebar ${isSidebarOpen ? 'open' : 'closed'}`}>
+        <div className="sidebar-items">
         {renderMenuItems(menuItems)}
       </div>
 
       <div className="sidebar-footer">
+        <div className={`sidebar-item ${location.pathname === '/meu-perfil' ? 'active' : ''}`} onClick={() => navigate('/meu-perfil')}>
+          <span className="item-icon" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+            {user?.foto_perfil ? (
+               <img src={`${api.defaults.baseURL}${user.foto_perfil}`} alt="Perfil" style={{ width: '20px', height: '20px', borderRadius: '50%', objectFit: 'cover' }} />
+            ) : (
+               <div style={{ width: '20px', height: '20px', borderRadius: '50%', background: 'rgba(255,255,255,0.2)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '9px', fontWeight: 'bold' }}>
+                 {getInitials(user?.nome || '')}
+               </div>
+            )}
+          </span>
+          <span className="item-label">Meu Perfil</span>
+        </div>
         <div className="sidebar-item logout" onClick={() => navigate('/login')}>
           <span className="item-icon"><LogOut size={20} /></span>
           <span className="item-label">{t('menu.logout')}</span>
@@ -127,6 +147,14 @@ const Sidebar: React.FC = () => {
       </div>
 
     </div>
+    {/* Overlay for mobile when sidebar is open */}
+    {isSidebarOpen && (
+      <div 
+        className="sidebar-overlay" 
+        onClick={toggleSidebar} 
+      />
+    )}
+    </>
   );
 };
 

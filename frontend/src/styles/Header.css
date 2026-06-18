@@ -31,6 +31,7 @@
     padding: 0.5rem;
     border-radius: 8px;
     transition: background-color 0.2s;
+    display: flex;
 }
 
 .menu-toggle:hover {
@@ -110,4 +111,32 @@
 .lang-btn.active {
     background-color: var(--primary);
     color: white;
+}
+
+@media (max-width: 768px) {
+    .header {
+        height: 80px;
+        padding: 0 1rem;
+    }
+    .menu-toggle {
+        display: flex;
+    }
+    .header-logo {
+        height: 50px;
+    }
+    .header-title {
+        display: none; /* too long for mobile */
+    }
+    .language-selector {
+        display: none; /* hide on mobile to save space, or use icon */
+    }
+    .user-info span {
+        display: none; /* hide name on mobile */
+    }
+    .user-info {
+        padding: 0.5rem;
+    }
+    .header-left {
+        gap: 0.5rem;
+    }
 }

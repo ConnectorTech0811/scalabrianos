@@ -33,7 +33,13 @@ const Login: React.FC = () => {
 
       if (response.data.success) {
         login(response.data.user, response.data.token);
-        navigate('/missionarios');
+        const role = response.data.user.role;
+        const isAdm = role === 'ADMIN_GERAL' || role === 'ADMINISTRADOR' || role === 'REGISTRO_REGIONAL';
+        if (!isAdm) {
+          navigate('/financeiro');
+        } else {
+          navigate('/home');
+        }
       } else {
         setError(response.data.message || t('common.error'));
       }

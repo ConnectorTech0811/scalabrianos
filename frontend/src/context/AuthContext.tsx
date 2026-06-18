@@ -10,6 +10,7 @@ interface User {
     is_oconomo?: boolean;
     is_superior?: boolean;
     casa_id?: number | null;
+    foto_perfil?: string;
 }
 
 interface AuthContextType {
