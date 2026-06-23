@@ -1,5 +1,5 @@
 import React, { useState, useMemo, useEffect } from 'react';
-import { Edit2, X, Loader2, AlertCircle, Plus, DollarSign, Trash2, Download, Home as HomeIcon, Save, Search, Eye } from 'lucide-react';
+import { Edit2, X, Loader2, AlertCircle, Plus, DollarSign, Trash2, Download, Home as HomeIcon, Save, Search, Eye, ChevronLeft, ChevronRight } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { useAuth } from '../context/AuthContext';
 import { useNavigate } from 'react-router-dom';
@@ -45,10 +45,16 @@ const CasasReligiosas: React.FC = () => {
   const [editingHouse, setEditingHouse] = useState<ReligiousHouse | null>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [saveLoading, setSaveLoading] = useState(false);
+  const [currentPage, setCurrentPage] = useState(1);
+  const itemsPerPage = 12;
 
   useEffect(() => {
     fetchHouses();
   }, []);
+
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [filterName, filterCity, filterCountry, filterStatus]);
 
   const fetchHouses = async () => {
     setIsLoading(true);
@@ -73,6 +79,11 @@ const CasasReligiosas: React.FC = () => {
       return matchesName && matchesCity && matchesCountry && matchesStatus;
     });
   }, [houses, filterName, filterCity, filterCountry, filterStatus]);
+
+  const totalPages = Math.ceil(filteredHouses.length / itemsPerPage);
+  const paginatedHouses = useMemo(() => {
+    return filteredHouses.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage);
+  }, [filteredHouses, currentPage]);
 
   const handleClearFilters = () => {
     setFilterName('');
@@ -223,7 +234,7 @@ const CasasReligiosas: React.FC = () => {
               </tr>
             </thead>
             <tbody>
-              {filteredHouses.map((house) => (
+              {paginatedHouses.map((house) => (
                 <tr key={house.id}>
                   <td>#{house.id}</td>
                   <td className="bold">{house.nome}</td>
@@ -280,6 +291,31 @@ const CasasReligiosas: React.FC = () => {
           {filteredHouses.length === 0 && (
             <div className="empty-state">
               <p>{t('missionaries.empty')}</p>
+            </div>
+          )}
+
+          {/* Pagination */}
+          {totalPages > 1 && (
+            <div style={{ padding: '16px 20px', borderTop: '1px solid #e2e8f0', display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: '#f8fafc' }}>
+              <span style={{ fontSize: '14px', color: '#64748b' }}>Página {currentPage} de {totalPages}</span>
+              <div style={{ display: 'flex', gap: '8px' }}>
+                <button 
+                  type="button"
+                  disabled={currentPage === 1}
+                  onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
+                  style={{ background: currentPage === 1 ? '#e2e8f0' : 'white', border: '1px solid #cbd5e1', color: '#475569', padding: '6px 12px', borderRadius: '6px', cursor: currentPage === 1 ? 'not-allowed' : 'pointer', display: 'flex', alignItems: 'center' }}
+                >
+                  <ChevronLeft size={18} />
+                </button>
+                <button 
+                  type="button"
+                  disabled={currentPage === totalPages}
+                  onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
+                  style={{ background: currentPage === totalPages ? '#e2e8f0' : 'white', border: '1px solid #cbd5e1', color: '#475569', padding: '6px 12px', borderRadius: '6px', cursor: currentPage === totalPages ? 'not-allowed' : 'pointer', display: 'flex', alignItems: 'center' }}
+                >
+                  <ChevronRight size={18} />
+                </button>
+              </div>
             </div>
           )}
         </div>

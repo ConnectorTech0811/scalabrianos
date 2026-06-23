@@ -34,7 +34,19 @@ const Login: React.FC = () => {
       if (response.data.success) {
         login(response.data.user, response.data.token);
         const role = response.data.user.role;
-        const isAdm = role === 'ADMIN_GERAL' || role === 'ADMINISTRADOR' || role === 'REGISTRO_REGIONAL';
+        const isAdm = [
+          'ADMIN_GERAL',
+          'ADMINISTRADOR',
+          'REGISTRO_REGIONAL',
+          'SUPERIOR_REGIONAL',
+          'SECRETARIO_REGIONAL',
+          'ECONOMO_REGIONAL',
+          'SECRETARIADO_MISSAO',
+          'SECRETARIADO_VIDA_RELIGIOSA',
+          'SECRETARIADO_FORMACAO',
+          'SUPERIOR_LOCAL',
+          'ECONOMO_LOCAL'
+        ].includes(role);
         if (!isAdm) {
           navigate('/financeiro');
         } else {

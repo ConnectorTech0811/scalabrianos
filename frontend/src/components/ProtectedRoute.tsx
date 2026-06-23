@@ -22,6 +22,11 @@ const ProtectedRoute: React.FC<ProtectedRouteProps> = ({
     return <Navigate to="/login" state={{ from: location }} replace />;
   }
 
+  // Prevent REGISTRO_REGIONAL and ADMIN_GERAL from accessing extratos-mensais
+  if ((user?.role === 'REGISTRO_REGIONAL' || user?.role === 'ADMIN_GERAL') && location.pathname.startsWith('/extratos-mensais')) {
+    return <Navigate to="/home" replace />;
+  }
+
   // Admin check (ADMIN_GERAL or ADMINISTRADOR)
   if (requireAdmin && !isAdminGeral && !canEdit) {
     return <Navigate to="/home" replace />;

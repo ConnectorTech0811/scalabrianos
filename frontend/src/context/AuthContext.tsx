@@ -1,6 +1,21 @@
 import React, { createContext, useContext, useState, useEffect, type ReactNode } from 'react';
 
-export type UserRole = 'ADMIN_GERAL' | 'ADMINISTRADOR' | 'COLABORADOR' | 'INTERMITENTE' | 'PADRE' | 'REGISTRO_REGIONAL';
+export type UserRole = 
+  | 'ADMIN_GERAL' 
+  | 'ADMINISTRADOR' 
+  | 'COLABORADOR' 
+  | 'INTERMITENTE' 
+  | 'PADRE' 
+  | 'REGISTRO_REGIONAL'
+  | 'SUPERIOR_REGIONAL'
+  | 'SECRETARIO_REGIONAL'
+  | 'ECONOMO_REGIONAL'
+  | 'SECRETARIADO_MISSAO'
+  | 'SECRETARIADO_VIDA_RELIGIOSA'
+  | 'SECRETARIADO_FORMACAO'
+  | 'SUPERIOR_LOCAL'
+  | 'ECONOMO_LOCAL'
+  | 'MISSIONARIO';
 
 interface User {
     id: number;
@@ -62,10 +77,18 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
 
     const userRole = user?.role || null;
     const isAdminGeral = userRole === 'ADMIN_GERAL';
-    const isPadre = userRole === 'PADRE';
-    const isOconomo = (isPadre || isAdminGeral) && !!user?.is_oconomo;
-    const isSuperior = !!user?.is_superior;
-    const isRegional = userRole === 'REGISTRO_REGIONAL';
+    const isPadre = userRole === 'PADRE' || userRole === 'MISSIONARIO';
+    const isOconomo = ((isPadre || isAdminGeral) && !!user?.is_oconomo) || userRole === 'ECONOMO_LOCAL' || userRole === 'ECONOMO_REGIONAL';
+    const isSuperior = !!user?.is_superior || userRole === 'SUPERIOR_LOCAL' || userRole === 'SUPERIOR_REGIONAL';
+    const isRegional = [
+        'REGISTRO_REGIONAL',
+        'SUPERIOR_REGIONAL',
+        'SECRETARIO_REGIONAL',
+        'ECONOMO_REGIONAL',
+        'SECRETARIADO_MISSAO',
+        'SECRETARIADO_VIDA_RELIGIOSA',
+        'SECRETARIADO_FORMACAO'
+    ].includes(userRole || '');
     const canEdit = isAdminGeral || userRole === 'ADMINISTRADOR' || isRegional;
     const isAuthenticated = !!token;
 

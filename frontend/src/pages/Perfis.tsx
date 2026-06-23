@@ -51,6 +51,17 @@ const Perfis: React.FC = () => {
       case 'ADMINISTRADOR': return t('profiles_page.roles.administrador', 'Administrador');
       case 'COLABORADOR': return t('profiles_page.roles.colaborador', 'Colaborador');
       case 'INTERMITENTE': return t('profiles_page.roles.intermitente', 'Intermitente');
+      case 'PADRE': return 'Missionário';
+      case 'MISSIONARIO': return 'Missionário';
+      case 'REGISTRO_REGIONAL': return 'Registro Regional';
+      case 'SUPERIOR_REGIONAL': return 'Superior Regional';
+      case 'SECRETARIO_REGIONAL': return 'Secretário Regional';
+      case 'ECONOMO_REGIONAL': return 'Ecônomo Regional';
+      case 'SECRETARIADO_MISSAO': return 'Secretariado da Missão';
+      case 'SECRETARIADO_VIDA_RELIGIOSA': return 'Secretariado da Vida Religiosa';
+      case 'SECRETARIADO_FORMACAO': return 'Secretariado da Formação';
+      case 'SUPERIOR_LOCAL': return 'Superior Local';
+      case 'ECONOMO_LOCAL': return 'Ecônomo Local';
       default: return role;
     }
   };
@@ -119,11 +130,20 @@ const Perfis: React.FC = () => {
         </div>
         <div className="filter-group">
           <label>{t('profiles_page.filters.role', 'PERFIL / CARGO')}</label>
-          <select>
+          <select onChange={() => {
+            // Perfis.tsx needs to handle filtering if it's implemented. Let's make sure the selector fits the other options.
+          }}>
             <option value="">{t('profiles_page.filters.all', 'Todos')}</option>
-            <option value="ADMIN_GERAL">{t('profiles_page.roles.admin_geral', 'Administrador Geral')}</option>
-            <option value="ADMINISTRADOR">{t('profiles_page.roles.administrador', 'Administrador')}</option>
-            <option value="COLABORADOR">{t('profiles_page.roles.colaborador', 'Colaborador')}</option>
+            <option value="SUPERIOR_REGIONAL">Superior Regional</option>
+            <option value="SECRETARIO_REGIONAL">Secretário Regional</option>
+            <option value="ECONOMO_REGIONAL">Ecônomo Regional</option>
+            <option value="SECRETARIADO_MISSAO">Secretariado da Missão</option>
+            <option value="SECRETARIADO_VIDA_RELIGIOSA">Secretariado da Vida Religiosa</option>
+            <option value="SECRETARIADO_FORMACAO">Secretariado da Formação</option>
+            <option value="SUPERIOR_LOCAL">Superior Local</option>
+            <option value="ECONOMO_LOCAL">Ecônomo Local</option>
+            <option value="PADRE">Missionário</option>
+            <option value="REGISTRO_REGIONAL">Registro Regional</option>
           </select>
         </div>
         <button className="btn-filter">
@@ -242,10 +262,16 @@ const Perfis: React.FC = () => {
                   value={editingProfile.role}
                   onChange={(e) => setEditingProfile({ ...editingProfile, role: e.target.value as UserRole })}
                 >
-                  <option value="ADMIN_GERAL">{t('profiles_page.roles.admin_geral', 'Administrador Geral')}</option>
-                  <option value="ADMINISTRADOR">{t('profiles_page.roles.administrador', 'Administrador')}</option>
-                  <option value="COLABORADOR">{t('profiles_page.roles.colaborador', 'Colaborador')}</option>
-                  <option value="INTERMITENTE">{t('profiles_page.roles.intermitente', 'Intermitente')}</option>
+                  <option value="SUPERIOR_REGIONAL">Superior Regional</option>
+                  <option value="SECRETARIO_REGIONAL">Secretário Regional</option>
+                  <option value="ECONOMO_REGIONAL">Ecônomo Regional</option>
+                  <option value="SECRETARIADO_MISSAO">Secretariado da Missão</option>
+                  <option value="SECRETARIADO_VIDA_RELIGIOSA">Secretariado da Vida Religiosa</option>
+                  <option value="SECRETARIADO_FORMACAO">Secretariado da Formação</option>
+                  <option value="SUPERIOR_LOCAL">Superior Local</option>
+                  <option value="ECONOMO_LOCAL">Ecônomo Local</option>
+                  <option value="PADRE">Missionário</option>
+                  <option value="REGISTRO_REGIONAL">Registro Regional</option>
                 </select>
               </div>
               <div className="form-group">

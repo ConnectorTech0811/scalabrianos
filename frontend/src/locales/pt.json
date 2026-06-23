@@ -62,6 +62,7 @@
         "superior": "Superior",
         "status": "Status",
         "situation": "Situação",
+        "house": "Presença Missionária",
         "actions": "Ações",
         "view_details": "Ver Detalhes"
       },
@@ -315,8 +316,8 @@
       },
       "roles": {
         "admin_geral": "Registro Regional",
-        "colaborador": "Ecônomo Local",
-        "intermitente": "Superior Local"
+        "colaborador": "Missionário",
+        "intermitente": "Missionário"
       }
     },
     "logs": {

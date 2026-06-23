@@ -282,9 +282,15 @@ const Missionarios: React.FC = () => {
   const [casaFilter, setCasaFilter] = useState('');
   const [cidadeFilter, setCidadeFilter] = useState('');
   const [paisFilter, setPaisFilter] = useState('');
+  const [currentPage, setCurrentPage] = useState(1);
+  const itemsPerPage = 12;
 
 
   useEffect(() => { fetchMissionarios(); }, []);
+
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [searchTerm, situacaoFilter, secaoFilter, casaFilter, cidadeFilter, paisFilter]);
 
   const fetchMissionarios = async () => {
     setIsLoading(true);
@@ -592,6 +598,9 @@ const Missionarios: React.FC = () => {
     return matchesSearch && matchesCasa && matchesCidade && matchesPais && matchesSituacao && matchesSecao;
   });
 
+  const totalPages = Math.ceil(filtered.length / itemsPerPage);
+  const paginatedMissionarios = filtered.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage);
+
   // ▸ Get casa name
   const casaNome = (id: any) => casasDisponiveis.find(c => String(c.id) === String(id))?.nome || '-';
 
@@ -680,7 +689,7 @@ const Missionarios: React.FC = () => {
               </tr>
             </thead>
             <tbody>
-              {filtered.map(m => (
+              {paginatedMissionarios.map(m => (
                 <tr key={m.id}>
                   <td>#{m.id}</td>
                   <td className="bold">{m.nome}</td>
@@ -704,6 +713,31 @@ const Missionarios: React.FC = () => {
               )}
             </tbody>
           </table>
+
+          {/* Pagination */}
+          {totalPages > 1 && (
+            <div style={{ padding: '16px 20px', borderTop: '1px solid #e2e8f0', display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: '#f8fafc' }}>
+              <span style={{ fontSize: '14px', color: '#64748b' }}>Página {currentPage} de {totalPages}</span>
+              <div style={{ display: 'flex', gap: '8px' }}>
+                <button 
+                  type="button"
+                  disabled={currentPage === 1}
+                  onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
+                  style={{ background: currentPage === 1 ? '#e2e8f0' : 'white', border: '1px solid #cbd5e1', color: '#475569', padding: '6px 12px', borderRadius: '6px', cursor: currentPage === 1 ? 'not-allowed' : 'pointer', display: 'flex', alignItems: 'center' }}
+                >
+                  <ChevronLeft size={18} />
+                </button>
+                <button 
+                  type="button"
+                  disabled={currentPage === totalPages}
+                  onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
+                  style={{ background: currentPage === totalPages ? '#e2e8f0' : 'white', border: '1px solid #cbd5e1', color: '#475569', padding: '6px 12px', borderRadius: '6px', cursor: currentPage === totalPages ? 'not-allowed' : 'pointer', display: 'flex', alignItems: 'center' }}
+                >
+                  <ChevronRight size={18} />
+                </button>
+              </div>
+            </div>
+          )}
         </div>
       )}
 

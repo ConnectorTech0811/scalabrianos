@@ -60,7 +60,9 @@ const Sidebar: React.FC = () => {
 
   // 3. Prestação de Contas
   menuItems.push({ icon: <DollarSign size={20} />, label: t('menu.finance'), path: '/financeiro' });
-  menuItems.push({ icon: <ClipboardList size={20} />, label: 'Extratos Mensais', path: '/extratos-mensais' });
+  if (user?.role !== 'REGISTRO_REGIONAL' && user?.role !== 'ADMIN_GERAL') {
+    menuItems.push({ icon: <ClipboardList size={20} />, label: 'Extratos Mensais', path: '/extratos-mensais' });
+  }
 
   // 4. Mapa RNSMM
   menuItems.push({ icon: <Globe size={20} />, label: t('menu.map'), path: '/mapa' });
