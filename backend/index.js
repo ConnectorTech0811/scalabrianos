@@ -56,14 +56,6 @@ app.use(cors({
 }));
 app.use(express.json());
 
-// Ensure /api prefix normalization for Vercel Services rewrites
-app.use((req, res, next) => {
-  if (!req.url.startsWith('/api') && !req.url.startsWith('/uploads')) {
-    req.url = '/api' + req.url;
-  }
-  next();
-});
-
 // Method override middleware to allow PUT/DELETE via POST with custom header (avoiding 403 firewall blocks)
 app.use((req, res, next) => {
   const methodOverride = req.headers['x-http-method-override'] || req.query['_method'];
@@ -2383,6 +2375,22 @@ if (require.main === module) {
 } else {
   // Ensure schema on serverless cold start if needed
   ensureOptionalSchema().catch(err => console.error('Schema init error:', err));
+}
+
+// Serve static frontend dist files and handle SPA fallback for non-API GET requests
+const frontendDistDir = path.join(__dirname, '..', 'frontend', 'dist');
+if (fs.existsSync(frontendDistDir)) {
+  app.use(express.static(frontendDistDir));
+  app.get('*', (req, res, next) => {
+    if (req.originalUrl.startsWith('/api') || req.originalUrl.startsWith('/uploads')) {
+      return next();
+    }
+    const indexPath = path.join(frontendDistDir, 'index.html');
+    if (fs.existsSync(indexPath)) {
+      return res.sendFile(indexPath);
+    }
+    next();
+  });
 }
 
 // Final catch-all for 404s (to distinguish from Apache 404)
