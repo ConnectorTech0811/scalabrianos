@@ -242,10 +242,12 @@ app.post(['/api/auth/forgot-password', '/api/forgot-password'], async (req, res)
     await sendPasswordResetEmail(user.login, user.nome);
     res.json({ success: true, message: 'E-mail de recuperação enviado com sucesso! Verifique sua caixa de entrada.' });
   } catch (error) {
-    console.error('[FORGOT-PASSWORD ERROR]', error);
+    console.error('[FORGOT-PASSWORD ERROR]', error.code, error.message, error.responseCode);
     res.status(500).json({ 
       success: false, 
-      message: `Erro ao enviar o e-mail de recuperação: ${error?.message || 'Falha no servidor SMTP'}` 
+      message: `Erro ao enviar o e-mail de recuperação: ${error?.message || 'Falha no servidor SMTP'}`,
+      smtpCode: error?.code,
+      smtpResponse: error?.response,
     });
   }
 });

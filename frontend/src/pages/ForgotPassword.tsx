@@ -29,7 +29,9 @@ const ForgotPassword: React.FC = () => {
             setIsSent(true);
         } catch (err: any) {
             console.error('[FORGOT PASSWORD ERROR]', err);
-            setErrorMsg(err?.response?.data?.message || 'Erro ao solicitar recuperação de senha. Verifique o e-mail informado.');
+            const data = err?.response?.data;
+            const detail = data?.smtpCode ? ` (${data.smtpCode})` : '';
+            setErrorMsg((data?.message || 'Erro ao solicitar recuperação de senha.') + detail);
         } finally {
             setIsLoading(false);
         }
