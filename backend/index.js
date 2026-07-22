@@ -2383,10 +2383,9 @@ if (require.main === module) {
 const frontendDistDir = path.join(__dirname, '..', 'frontend', 'dist');
 if (fs.existsSync(frontendDistDir)) {
   app.use(express.static(frontendDistDir));
-  app.get('*', (req, res, next) => {
-    if (req.originalUrl.startsWith('/api') || req.originalUrl.startsWith('/uploads')) {
-      return next();
-    }
+  app.use((req, res, next) => {
+    if (req.method !== 'GET') return next();
+    if (req.path.startsWith('/api') || req.path.startsWith('/uploads')) return next();
     const indexPath = path.join(frontendDistDir, 'index.html');
     if (fs.existsSync(indexPath)) {
       return res.sendFile(indexPath);
