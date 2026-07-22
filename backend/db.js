@@ -1,12 +1,14 @@
 const mysql = require('mysql2/promise');
 require('dotenv').config();
 
+const clean = (val) => typeof val === 'string' ? val.replace(/^["']|["']$/g, '').trim() : val;
+
 const pool = mysql.createPool({
-  host: process.env.DB_HOST,
-  port: process.env.DB_PORT || 3306,
-  user: process.env.DB_USER,
-  password: process.env.DB_PASSWORD,
-  database: process.env.DB_NAME,
+  host: clean(process.env.DB_HOST),
+  port: parseInt(clean(process.env.DB_PORT) || '3306'),
+  user: clean(process.env.DB_USER),
+  password: clean(process.env.DB_PASSWORD),
+  database: clean(process.env.DB_NAME),
   waitForConnections: true,
   connectionLimit: 10,
   queueLimit: 0

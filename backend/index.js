@@ -7,7 +7,7 @@ const fs = require('fs');
 const path = require('path');
 const multer = require('multer');
 const ExcelJS = require('exceljs');
-const { sendWelcomeEmail, sendFirstAccessNotification } = require('./emailService');
+const { sendWelcomeEmail, sendFirstAccessNotification, sendPasswordResetEmail } = require('./emailService');
 require('dotenv').config();
 
 // Multer configuration for document uploads
@@ -214,6 +214,31 @@ app.post('/api/login', async (req, res) => {
       success: false, 
       message: 'Erro no servidor durante o login. Por favor, tente novamente mais tarde.',
       error: process.env.NODE_ENV === 'development' ? error.message : undefined
+    });
+  }
+});
+
+// Forgot password (sends password recovery email)
+app.post(['/api/auth/forgot-password', '/api/forgot-password'], async (req, res) => {
+  const email = (req.body.email || req.body.login || '').trim();
+  if (!email) {
+    return res.status(400).json({ success: false, message: 'O e-mail é obrigatório.' });
+  }
+
+  try {
+    const [rows] = await db.query('SELECT id, nome, login FROM tb_usuarios WHERE login = ? AND status = ?', [email, 'ATIVO']);
+    if (rows.length === 0) {
+      return res.status(404).json({ success: false, message: 'Nenhum usuário ativo foi encontrado com este e-mail.' });
+    }
+
+    const user = rows[0];
+    await sendPasswordResetEmail(user.login, user.nome);
+    res.json({ success: true, message: 'E-mail de recuperação enviado com sucesso! Verifique sua caixa de entrada.' });
+  } catch (error) {
+    console.error('[FORGOT-PASSWORD ERROR]', error);
+    res.status(500).json({ 
+      success: false, 
+      message: `Erro ao enviar o e-mail de recuperação: ${error?.message || 'Falha no servidor SMTP'}` 
     });
   }
 });
@@ -2334,11 +2359,16 @@ const seedAdmin = async () => {
   }
 };
 
-app.listen(PORT, '0.0.0.0', async () => {
-  console.log(`Server running on http://localhost:${PORT}`);
-  await ensureOptionalSchema();
-  await seedAdmin();
-});
+if (process.env.NODE_ENV !== 'test' && !process.env.VERCEL) {
+  app.listen(PORT, '0.0.0.0', async () => {
+    console.log(`Server running on http://localhost:${PORT}`);
+    await ensureOptionalSchema();
+    await seedAdmin();
+  });
+} else {
+  // Ensure schema on serverless cold start if needed
+  ensureOptionalSchema().catch(err => console.error('Schema init error:', err));
+}
 
 // Final catch-all for 404s (to distinguish from Apache 404)
 app.use((req, res) => {
@@ -2350,3 +2380,5 @@ app.use((req, res) => {
     hint: 'Check if the /api prefix is being handled correctly by the proxy'
   });
 });
+
+module.exports = app;
