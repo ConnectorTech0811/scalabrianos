@@ -2359,9 +2359,9 @@ const seedAdmin = async () => {
   }
 };
 
-if (process.env.NODE_ENV !== 'test' && !process.env.VERCEL) {
+if (require.main === module) {
   app.listen(PORT, '0.0.0.0', async () => {
-    console.log(`Server running on http://localhost:${PORT}`);
+    console.log(`Server running on port ${PORT}`);
     await ensureOptionalSchema();
     await seedAdmin();
   });
