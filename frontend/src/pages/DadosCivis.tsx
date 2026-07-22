@@ -40,7 +40,7 @@ const DadosCivis: React.FC = () => {
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
 
-  const API_URL = import.meta.env.VITE_API_URL || 'https://scalabrinianos.dev.connectortech.com.br/api';
+  const API_URL = import.meta.env.VITE_API_URL || '/api';
 
   // For now, keeping these as local state until multi-row API is refined
   const [nationalities, setNationalities] = useState(['']);

@@ -293,7 +293,7 @@ const PerfilMissionario: React.FC = () => {
   const [newPassword, setNewPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
 
-  const API_URL = import.meta.env.VITE_API_URL || 'https://scalabrinianos.dev.connectortech.com.br/api';
+  const API_URL = import.meta.env.VITE_API_URL || '/api';
   void API_URL;
 
   // eslint-disable-next-line react-hooks/exhaustive-deps

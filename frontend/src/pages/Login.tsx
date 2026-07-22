@@ -2,10 +2,10 @@ import React, { useState } from 'react';
 import { Eye, EyeOff, AlertCircle } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
-import axios from 'axios';
 import { useAuth } from '../context/AuthContext';
 import logoVertical from '../assets/logo_vertical.png';
 import '../styles/Login.css';
+import api from '../api';
 
 const Login: React.FC = () => {
   const { t } = useTranslation();
@@ -18,15 +18,13 @@ const Login: React.FC = () => {
   const navigate = useNavigate();
   const { login } = useAuth();
 
-  const API_URL = import.meta.env.VITE_API_URL || 'https://scalabrinianos.dev.connectortech.com.br/api';
-
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsLoading(true);
     setError(null);
 
     try {
-      const response = await axios.post(`${API_URL}/login`, {
+      const response = await api.post('/login', {
         email,
         password
       });

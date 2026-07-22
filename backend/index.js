@@ -56,6 +56,14 @@ app.use(cors({
 }));
 app.use(express.json());
 
+// Ensure /api prefix normalization for Vercel Services rewrites
+app.use((req, res, next) => {
+  if (!req.url.startsWith('/api') && !req.url.startsWith('/uploads')) {
+    req.url = '/api' + req.url;
+  }
+  next();
+});
+
 // Method override middleware to allow PUT/DELETE via POST with custom header (avoiding 403 firewall blocks)
 app.use((req, res, next) => {
   const methodOverride = req.headers['x-http-method-override'] || req.query['_method'];
