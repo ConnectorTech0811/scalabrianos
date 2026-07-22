@@ -1802,7 +1802,7 @@ const PerfilMissionario: React.FC = () => {
 
                   {(isAdminGeral || canEdit) && (
                     <div style={{ marginTop: '20px', padding: '15px', background: '#eff6ff', borderRadius: '8px', color: '#1e40af', fontSize: '0.85rem' }}>
-                      <strong>Nota de Administrador:</strong> Você pode alterar estas permissões na tela de <a href="/administradores" style={{ color: '#013375', fontWeight: 700 }}>Gestão de Acessos</a> ou editando o cadastro do missionário.
+                      <strong>Nota de Administrador:</strong> Você pode alterar estas permissões na tela de <a href="#/administradores" style={{ color: '#013375', fontWeight: 700 }}>Gestão de Acessos</a> ou editando o cadastro do missionário.
                     </div>
                   )}
                 </div>
