@@ -12,23 +12,24 @@
   "rewrites": [
     {
       "source": "/api(/.*)?",
-      "destination": "backend"
+      "destination": {
+        "type": "service",
+        "service": "backend"
+      }
     },
     {
       "source": "/uploads(/.*)?",
-      "destination": "backend"
-    },
-    {
-      "source": "/assets/(.*)",
-      "destination": "frontend/assets/$1"
-    },
-    {
-      "source": "/(.*\\.(?:js|css|png|jpg|jpeg|gif|svg|ico|json|woff|woff2|ttf|eot|webp))",
-      "destination": "frontend/$1"
+      "destination": {
+        "type": "service",
+        "service": "backend"
+      }
     },
     {
       "source": "/(.*)",
-      "destination": "frontend/index.html"
+      "destination": {
+        "type": "service",
+        "service": "frontend"
+      }
     }
   ]
 }
