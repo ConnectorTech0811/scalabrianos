@@ -19,14 +19,12 @@ const Logs: React.FC = () => {
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  const API_URL = import.meta.env.VITE_API_URL || '/api';
-
   useEffect(() => { fetchLogs(); }, []);
 
   const fetchLogs = async () => {
     setIsLoading(true);
     try {
-      const res = await api.get(`${API_URL}/logs`);
+      const res = await api.get('/logs');
       setLogs(res.data);
       setError(null);
     } catch {

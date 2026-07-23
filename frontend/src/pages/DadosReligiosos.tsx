@@ -22,8 +22,6 @@ const DadosReligiosos: React.FC = () => {
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
 
-  const API_URL = import.meta.env.VITE_API_URL || '/api';
-
   useEffect(() => {
     if (user?.id) {
       fetchReligiousData();
@@ -33,7 +31,7 @@ const DadosReligiosos: React.FC = () => {
   const fetchReligiousData = async () => {
     setIsLoading(true);
     try {
-      const response = await api.post(`${API_URL}/usuarios/${user?.id}/dados-religiosos/get`);
+      const response = await api.post(`/usuarios/${user?.id}/dados-religiosos/get`);
       if (response.data) {
         const data = response.data;
         // Format dates
@@ -61,7 +59,7 @@ const DadosReligiosos: React.FC = () => {
     if (!user?.id) return;
     setIsSaving(true);
     try {
-      await api.post(`${API_URL}/usuarios/${user.id}/dados-religiosos`, formData);
+      await api.post(`/usuarios/${user.id}/dados-religiosos`, formData);
       alert('Dados salvos com sucesso!');
     } catch (err) {
       console.error('Error saving religious data:', err);
@@ -82,7 +80,7 @@ const DadosReligiosos: React.FC = () => {
 
     setIsSaving(true);
     try {
-      await api.post(`${API_URL}/usuarios/${user.id}/documentos`, formData, {
+      await api.post(`/usuarios/${user.id}/documentos`, formData, {
         headers: { 'Content-Type': 'multipart/form-data' }
       });
       setPendingDocDesc('');

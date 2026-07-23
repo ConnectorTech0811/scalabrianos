@@ -40,8 +40,6 @@ const DadosCivis: React.FC = () => {
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
 
-  const API_URL = import.meta.env.VITE_API_URL || '/api';
-
   // For now, keeping these as local state until multi-row API is refined
   const [nationalities, setNationalities] = useState(['']);
   const [rgList, setRgList] = useState(['']);
@@ -55,7 +53,7 @@ const DadosCivis: React.FC = () => {
   const fetchCivilData = async () => {
     setIsLoading(true);
     try {
-      const response = await api.post(`${API_URL}/usuarios/${user?.id}/dados-civis/get`);
+      const response = await api.post(`/usuarios/${user?.id}/dados-civis/get`);
       if (response.data) {
         // Format date to YYYY-MM-DD for input type="date"
         const data = response.data;
@@ -88,7 +86,7 @@ const DadosCivis: React.FC = () => {
       delete dataToSave.nome_pai;
       delete dataToSave.nome_mae;
 
-      await api.post(`${API_URL}/usuarios/${user.id}/dados-civis`, dataToSave);
+      await api.post(`/usuarios/${user.id}/dados-civis`, dataToSave);
       alert('Dados salvos com sucesso!');
     } catch (err) {
       console.error('Error saving civil data:', err);
