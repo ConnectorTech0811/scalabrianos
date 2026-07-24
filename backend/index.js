@@ -45,9 +45,11 @@ app.use(cors({
       'http://127.0.0.1:5173',
       'http://127.0.0.1:5174',
       'http://127.0.0.1:5175',
-      'https://scalabrinianos.dev.connectortech.com.br'
+      'https://scalabrinianos.dev.connectortech.com.br',
+      'https://gestao.scalabrinianos.com',
+      'https://www.gestao.scalabrinianos.com'
     ];
-    if (allowedOrigins.includes(origin) || origin.endsWith('.vercel.app') || origin.includes('vercel.app')) {
+    if (allowedOrigins.includes(origin) || origin.endsWith('.vercel.app') || origin.includes('vercel.app') || origin.includes('scalabrinianos.com')) {
       return callback(null, true);
     }
     return callback(null, true);

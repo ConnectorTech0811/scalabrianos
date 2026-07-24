@@ -55,7 +55,7 @@ setTimeout(() => {
  */
 async function sendWelcomeEmail(email, nome, password) {
   try {
-    const frontendUrl = clean(process.env.FRONTEND_URL) || 'https://scalabrianos.vercel.app';
+    const frontendUrl = clean(process.env.FRONTEND_URL) || 'https://gestao.scalabrinianos.com';
     const resetUrl = `${frontendUrl}/#/reset-password`;
 
     const info = await getTransporter().sendMail({
@@ -159,7 +159,7 @@ async function sendFirstAccessNotification(recipientEmail, missionarioNome, miss
  * Sends a password recovery email to a user.
  */
 async function sendPasswordResetEmail(email, nome) {
-  const frontendUrl = clean(process.env.FRONTEND_URL) || 'https://scalabrianos.vercel.app';
+  const frontendUrl = clean(process.env.FRONTEND_URL) || 'https://gestao.scalabrinianos.com';
   const resetUrl = `${frontendUrl}/#/reset-password`;
   const fromAddr = clean(process.env.SMTP_FROM) || clean(process.env.SMTP_USER);
 
