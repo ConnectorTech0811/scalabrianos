@@ -8,6 +8,7 @@ const path = require('path');
 const multer = require('multer');
 const ExcelJS = require('exceljs');
 const { sendWelcomeEmail, sendFirstAccessNotification, sendPasswordResetEmail } = require('./emailService');
+const { validateCNPJ, formatCNPJ, cleanCNPJ } = require('./cnpjHelper');
 require('dotenv').config();
 
 // Multer configuration for document uploads
@@ -789,19 +790,35 @@ app.post('/api/casas-religiosas/get', authenticateToken, async (req, res) => {
   }
 });
 
+app.post('/api/utils/validar-cnpj', authenticateToken, (req, res) => {
+  const { cnpj } = req.body;
+  if (!cnpj) return res.status(400).json({ valid: false, message: 'CNPJ não informado.' });
+
+  const isValid = validateCNPJ(cnpj);
+  const formatted = formatCNPJ(cnpj);
+  res.json({
+    valid: isValid,
+    cnpj: formatted,
+    clean: cleanCNPJ(cnpj),
+    message: isValid ? 'CNPJ válido (Alfanumérico/Numérico).' : 'CNPJ inválido.'
+  });
+});
+
 app.post('/api/casas-religiosas', authenticateToken, async (req, res) => {
-  const { nome, endereco, status, regional, data_referencia_casa, pm_code, tipo } = req.body;
+  const { nome, cnpj, endereco, status, regional, data_referencia_casa, pm_code, tipo } = req.body;
   try {
     const dRef = sanitizeDate(data_referencia_casa);
 
     const cols = ['nome','endereco','status'];
     const params = [nome, endereco, status];
 
+    const [hasCnpj] = await db.query("SHOW COLUMNS FROM tb_casas_religiosas LIKE 'cnpj'");
     const [hasRegional] = await db.query("SHOW COLUMNS FROM tb_casas_religiosas LIKE 'regional'");
     const [hasDataRef] = await db.query("SHOW COLUMNS FROM tb_casas_religiosas LIKE 'data_referencia_casa'");
     const [hasTipo] = await db.query("SHOW COLUMNS FROM tb_casas_religiosas LIKE 'tipo'");
     const [hasPmCode] = await db.query("SHOW COLUMNS FROM tb_casas_religiosas LIKE 'pm_code'");
 
+    if (hasCnpj.length > 0) { cols.push('cnpj'); params.push(cnpj ? formatCNPJ(cnpj) : null); }
     if (hasRegional.length > 0) { cols.push('regional'); params.push(regional || null); }
     if (hasDataRef.length > 0) { cols.push('data_referencia_casa'); params.push(dRef); }
     if (hasTipo.length > 0) { cols.push('tipo'); params.push(tipo || null); }
@@ -819,7 +836,7 @@ app.post('/api/casas-religiosas', authenticateToken, async (req, res) => {
 });
 
 app.put('/api/casas-religiosas/:id', authenticateToken, async (req, res) => {
-  const { nome, endereco, status, regional, data_referencia_casa, pm_code, tipo, cidade, pais } = req.body;
+  const { nome, cnpj, endereco, status, regional, data_referencia_casa, pm_code, tipo, cidade, pais } = req.body;
   const { id } = req.params;
   try {
     const dRef = sanitizeDate(data_referencia_casa);
@@ -827,6 +844,7 @@ app.put('/api/casas-religiosas/:id', authenticateToken, async (req, res) => {
     const cols = ['nome','endereco','status'];
     const params = [nome, endereco, status];
 
+    const [hasCnpj] = await db.query("SHOW COLUMNS FROM tb_casas_religiosas LIKE 'cnpj'");
     const [hasRegional] = await db.query("SHOW COLUMNS FROM tb_casas_religiosas LIKE 'regional'");
     const [hasDataRef] = await db.query("SHOW COLUMNS FROM tb_casas_religiosas LIKE 'data_referencia_casa'");
     const [hasTipo] = await db.query("SHOW COLUMNS FROM tb_casas_religiosas LIKE 'tipo'");
@@ -834,6 +852,7 @@ app.put('/api/casas-religiosas/:id', authenticateToken, async (req, res) => {
     const [hasCidade] = await db.query("SHOW COLUMNS FROM tb_casas_religiosas LIKE 'cidade'");
     const [hasPais] = await db.query("SHOW COLUMNS FROM tb_casas_religiosas LIKE 'pais'");
 
+    if (hasCnpj.length > 0) { cols.push('cnpj'); params.push(cnpj ? formatCNPJ(cnpj) : null); }
     if (hasRegional.length > 0) { cols.push('regional'); params.push(regional || null); }
     if (hasDataRef.length > 0) { cols.push('data_referencia_casa'); params.push(dRef); }
     if (hasTipo.length > 0) { cols.push('tipo'); params.push(tipo || null); }
@@ -855,7 +874,7 @@ app.put('/api/casas-religiosas/:id', authenticateToken, async (req, res) => {
 
 // Alias for POST to avoid 403 Forbidden on PUT in some production servers
 app.post('/api/casas-religiosas/:id/update', authenticateToken, async (req, res) => {
-  const { nome, endereco, status, regional, data_referencia_casa, pm_code, tipo, cidade, pais } = req.body;
+  const { nome, cnpj, endereco, status, regional, data_referencia_casa, pm_code, tipo, cidade, pais } = req.body;
   const { id } = req.params;
   try {
     const dRef = sanitizeDate(data_referencia_casa);
@@ -863,6 +882,7 @@ app.post('/api/casas-religiosas/:id/update', authenticateToken, async (req, res)
     const cols = ['nome','endereco','status'];
     const params = [nome, endereco, status];
 
+    const [hasCnpj] = await db.query("SHOW COLUMNS FROM tb_casas_religiosas LIKE 'cnpj'");
     const [hasRegional] = await db.query("SHOW COLUMNS FROM tb_casas_religiosas LIKE 'regional'");
     const [hasDataRef] = await db.query("SHOW COLUMNS FROM tb_casas_religiosas LIKE 'data_referencia_casa'");
     const [hasTipo] = await db.query("SHOW COLUMNS FROM tb_casas_religiosas LIKE 'tipo'");
@@ -870,6 +890,7 @@ app.post('/api/casas-religiosas/:id/update', authenticateToken, async (req, res)
     const [hasCidade] = await db.query("SHOW COLUMNS FROM tb_casas_religiosas LIKE 'cidade'");
     const [hasPais] = await db.query("SHOW COLUMNS FROM tb_casas_religiosas LIKE 'pais'");
 
+    if (hasCnpj.length > 0) { cols.push('cnpj'); params.push(cnpj ? formatCNPJ(cnpj) : null); }
     if (hasRegional.length > 0) { cols.push('regional'); params.push(regional || null); }
     if (hasDataRef.length > 0) { cols.push('data_referencia_casa'); params.push(dRef); }
     if (hasTipo.length > 0) { cols.push('tipo'); params.push(tipo || null); }

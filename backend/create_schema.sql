@@ -26,6 +26,7 @@ CREATE TABLE IF NOT EXISTS tb_usuarios (
 CREATE TABLE IF NOT EXISTS tb_casas_religiosas (
     id INT AUTO_INCREMENT PRIMARY KEY,
     nome VARCHAR(255) NOT NULL,
+    cnpj VARCHAR(20) DEFAULT NULL,
     endereco TEXT,
     status ENUM('ATIVO', 'INATIVO') DEFAULT 'ATIVO',
     regional VARCHAR(255),
@@ -33,6 +34,7 @@ CREATE TABLE IF NOT EXISTS tb_casas_religiosas (
     pm_code VARCHAR(100) DEFAULT NULL,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
+
 
 -- 3. Table for Civil Data
 CREATE TABLE IF NOT EXISTS tb_dados_civis (
