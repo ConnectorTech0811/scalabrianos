@@ -349,11 +349,11 @@ const PerfilMissionario: React.FC = () => {
         doc_primeira_comunhao: relRes.data.doc_primeira_comunhao || '',
         doc_crisma: relRes.data.doc_crisma || '',
       });
-      setCasasDisponiveis(casasRes.data);
-      setCasasHistorico(histRes.data.map((h: any) => ({ ...h, funcao: h.funcao ? h.funcao.split(',').map((s: string) => s.trim()) : [] })));
-      setNacionalidades(nacRes.data.nacionalidades || []);
-      setDocumentos(docRes.data);
-      setItinerarioStages(itinRes.data || []);
+      setCasasDisponiveis(Array.isArray(casasRes.data) ? casasRes.data : []);
+      setCasasHistorico(Array.isArray(histRes.data) ? histRes.data.map((h: any) => ({ ...h, funcao: h.funcao ? h.funcao.split(',').map((s: string) => s.trim()) : [] })) : []);
+      setNacionalidades(Array.isArray(nacRes.data?.nacionalidades) ? nacRes.data.nacionalidades : []);
+      setDocumentos(Array.isArray(docRes.data) ? docRes.data : []);
+      setItinerarioStages(Array.isArray(itinRes.data) ? itinRes.data : []);
       setNit(civRes.data?.nit || '');
 
       // Load new sections
@@ -367,14 +367,14 @@ const PerfilMissionario: React.FC = () => {
         api.get(`/usuarios/${id}/quadro-pessoal`),
         api.get(`/usuarios/${id}/contatos`),
       ]);
-      setFormacaoAcademica(fRes.data);
-      setAtividadesMissionarias(aRes.data);
-      setObrasRealizadas(oRes.data);
-      setSaudeRecords(sRes.data);
-      setContasBancarias(bRes.data);
-      setObservacoesGerais(obsRes.data);
-      setQuadroPessoal(qRes.data[0] || null);
-      setContatos(contRes.data || []);
+      setFormacaoAcademica(Array.isArray(fRes.data) ? fRes.data : []);
+      setAtividadesMissionarias(Array.isArray(aRes.data) ? aRes.data : []);
+      setObrasRealizadas(Array.isArray(oRes.data) ? oRes.data : []);
+      setSaudeRecords(Array.isArray(sRes.data) ? sRes.data : []);
+      setContasBancarias(Array.isArray(bRes.data) ? bRes.data : []);
+      setObservacoesGerais(Array.isArray(obsRes.data) ? obsRes.data : []);
+      setQuadroPessoal(Array.isArray(qRes.data) ? qRes.data[0] : (qRes.data || null));
+      setContatos(Array.isArray(contRes.data) ? contRes.data : []);
 
       const sitRes = await api.get(`/usuarios/${id}/situacao`);
       if (sitRes.data) setSituacaoData({

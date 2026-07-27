@@ -25,11 +25,13 @@ import ResetPassword from './pages/ResetPassword';
 import MainLayout from './components/Layout/MainLayout';
 import { AuthProvider } from './context/AuthContext';
 import ProtectedRoute from './components/ProtectedRoute';
+import ErrorBoundary from './components/ErrorBoundary';
 
 function App() {
   return (
-    <AuthProvider>
-      <Router>
+    <ErrorBoundary>
+      <AuthProvider>
+        <Router>
         <Routes>
           <Route path="/login" element={<Login />} />
           <Route path="/forgot-password" element={<ForgotPassword />} />
@@ -147,6 +149,7 @@ function App() {
         </Routes>
       </Router>
     </AuthProvider>
+  </ErrorBoundary>
   );
 }
 

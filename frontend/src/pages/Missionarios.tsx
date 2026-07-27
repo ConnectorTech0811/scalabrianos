@@ -299,8 +299,8 @@ const Missionarios: React.FC = () => {
         api.post('/usuarios/get'),
         api.post('/casas-religiosas/get'),
       ]);
-      setMissionarios(mRes.data.filter((u: any) => u.role === 'PADRE'));
-      setCasasDisponiveis(cRes.data);
+      setMissionarios(Array.isArray(mRes.data) ? mRes.data.filter((u: any) => u.role === 'PADRE') : []);
+      setCasasDisponiveis(Array.isArray(cRes.data) ? cRes.data : []);
       setError(null);
     } catch { setError(t('missionaries.error_loading')); }
     finally { setIsLoading(false); }
@@ -1324,7 +1324,7 @@ const Missionarios: React.FC = () => {
                         <label>{t('missionaries.wizard.houses.select_house')}</label>
                         <select value={novaCasa.casa_id} onChange={e => setNovaCasa(p => ({ ...p, casa_id: e.target.value }))}>
                           <option value="">Selecione...</option>
-                          {casasDisponiveis.map(c => <option key={c.id} value={c.id}>{c.nome}</option>)}
+                          {(Array.isArray(casasDisponiveis) ? casasDisponiveis : []).map(c => <option key={c.id} value={c.id}>{c.nome}</option>)}
                         </select>
                       </div>
                       <div className="form-group">
@@ -1335,7 +1335,7 @@ const Missionarios: React.FC = () => {
                         <label>País</label>
                         <input type="text" list="paises-list" value={novaCasa.pais} onChange={e => setNovaCasa(p => ({ ...p, pais: e.target.value }))} placeholder="Selecione ou digite..." />
                         <datalist id="paises-list">
-                          {PAISES_COMMON.map(p => <option key={p} value={p} />)}
+                          {(Array.isArray(PAISES_COMMON) ? PAISES_COMMON : []).map(p => <option key={p} value={p} />)}
                         </datalist>
                       </div>
                       <div className="form-group">
@@ -1379,7 +1379,7 @@ const Missionarios: React.FC = () => {
                   </div>
 
                   {/* Added houses list */}
-                  {casasVinculos.length === 0 ? (
+                  {!Array.isArray(casasVinculos) || casasVinculos.length === 0 ? (
                     <div className="casa-empty">{t('missionaries.wizard.houses.empty')}</div>
                   ) : (
                     <div className="casas-wz-list">
@@ -1392,7 +1392,7 @@ const Missionarios: React.FC = () => {
                               <div className="casa-wz-meta">
                                   <span>{t('missionaries.wizard.houses.since')} {formatDateLocal(v.data_inicio)}</span>
                                 <span className="duracao-pill">⏱ {calcDuracao(v.data_inicio)}</span>
-                                {v.funcao && v.funcao.length > 0 && <span className="superior-pill"><Star size={11} /> {Array.isArray(v.funcao) ? v.funcao.join(', ') : v.funcao}</span>}
+                                {v.funcao && (Array.isArray(v.funcao) ? v.funcao.length > 0 : true) && <span className="superior-pill"><Star size={11} /> {Array.isArray(v.funcao) ? v.funcao.join(', ') : String(v.funcao)}</span>}
                                 {v.pm && <div style={{ fontSize: '12px', color: '#3b82f6', marginTop: '4px' }}>PM: {v.pm}</div>}
                                 {v.tipo && <div style={{ fontSize: '12px', color: '#475569', marginTop: '2px' }}>{v.tipo}</div>}
                               </div>
