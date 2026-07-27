@@ -66,6 +66,7 @@ interface ConsolidatedStatus {
 interface EntryLog {
   id: string;
   tipo: 'CREDITO' | 'DEBITO';
+  categoriaId?: number;
   categoriaNome: string;
   valor: number;
   obs: string;
@@ -128,6 +129,16 @@ const PlanilhaMensal: React.FC<Props> = ({ casas, categorias, externalUsuarioId,
   const [tempDespesaVal, setTempDespesaVal] = useState('');
   const [entryLogs, setEntryLogs] = useState<EntryLog[]>([]);
 
+  const syncEditValuesFromLogs = (logs: EntryLog[]) => {
+    const newVals: Record<number, number> = {};
+    logs.forEach(log => {
+      if (log.categoriaId) {
+        newVals[log.categoriaId] = (newVals[log.categoriaId] || 0) + log.valor;
+      }
+    });
+    setEditValues(newVals);
+  };
+
   const handleAddItem = (tipo: 'CREDITO' | 'DEBITO') => {
     const catId = tipo === 'CREDITO' ? tempReceitaCat : tempDespesaCat;
     const valStr = tipo === 'CREDITO' ? tempReceitaVal : tempDespesaVal;
@@ -137,29 +148,42 @@ const PlanilhaMensal: React.FC<Props> = ({ casas, categorias, externalUsuarioId,
     if (isNaN(num) || num <= 0) { alert('Informe um valor válido.'); return; }
 
     const id = parseInt(catId);
-    setEditValues(prev => ({
-      ...prev,
-      [id]: (prev[id] || 0) + num
-    }));
+    const catObj = categorias.find(c => c.id === id);
 
-    // Log this entry
-    const catNome = categorias.find(c => c.id === id)?.nome || '';
     const obs = tipo === 'CREDITO' ? obsReceita : obsDespesa;
-    setEntryLogs(prev => [{ id: `${Date.now()}-${id}`, tipo, categoriaNome: catNome, valor: num, obs, timestamp: new Date() }, ...prev]);
+    const newEntry: EntryLog = {
+      id: `${Date.now()}-${id}-${Math.random()}`,
+      tipo,
+      categoriaId: id,
+      categoriaNome: catObj?.nome || '',
+      valor: num,
+      obs,
+      timestamp: new Date()
+    };
+
+    const updatedLogs = [newEntry, ...entryLogs];
+    setEntryLogs(updatedLogs);
+    syncEditValuesFromLogs(updatedLogs);
 
     // Clear category, value AND observation
     if (tipo === 'CREDITO') { setTempReceitaCat(''); setTempReceitaVal(''); setObsReceita(''); }
     else { setTempDespesaCat(''); setTempDespesaVal(''); setObsDespesa(''); }
   };
 
+  const handleRemoveItem = (entryId: string) => {
+    const updatedLogs = entryLogs.filter(e => e.id !== entryId);
+    setEntryLogs(updatedLogs);
+    syncEditValuesFromLogs(updatedLogs);
+  };
+
   const canValidate = user?.role === 'ADMIN_GERAL' || user?.is_oconomo;
   const isSuperior = user?.role === 'ADMIN_GERAL' || user?.is_superior;
-  
+
   const isOwner = !externalUsuarioId || externalUsuarioId === user?.id;
   const isLocked = planilha?.status === 'VALIDADO' || (planilha?.status === 'PENDENTE' && isOwner) || (!isOwner && planilha?.status !== 'PENDENTE');
 
   useEffect(() => {
-    if (user?.role === 'PADRE' && user?.casa_id && !selectedCasa) {
+    if (user?.casa_id && !selectedCasa) {
       setSelectedCasa(user.casa_id.toString());
     }
   }, [user, selectedCasa]);
@@ -172,7 +196,7 @@ const PlanilhaMensal: React.FC<Props> = ({ casas, categorias, externalUsuarioId,
         loadConsolidadoStatus();
       }
     }
-  }, [selectedMes, user, viewMode, selectedCasa, externalUsuarioId]);
+  }, [selectedMes, user, viewMode, selectedCasa, externalUsuarioId, categorias]);
 
   const loadPlanilha = async (targetUserId?: number) => {
     const uid = targetUserId || externalUsuarioId || user?.id;
@@ -183,10 +207,27 @@ const PlanilhaMensal: React.FC<Props> = ({ casas, categorias, externalUsuarioId,
       if (res.data) {
         setPlanilha(res.data);
         const vals: Record<number, number> = {};
+        const logs: EntryLog[] = [];
         res.data.itens.forEach((it: any) => {
-          vals[it.categoria_id] = parseFloat(it.valor);
+          const val = parseFloat(it.valor);
+          if (val > 0) {
+            vals[it.categoria_id] = val;
+            const cat = categorias.find(c => c.id === it.categoria_id);
+            if (cat) {
+              logs.push({
+                id: `db-${it.categoria_id}`,
+                tipo: cat.tipo,
+                categoriaId: cat.id,
+                categoriaNome: cat.nome,
+                valor: val,
+                obs: '',
+                timestamp: new Date(res.data.updated_at || res.data.created_at || Date.now())
+              });
+            }
+          }
         });
         setEditValues(vals);
+        setEntryLogs(logs);
         setNumMissas(res.data.num_missas_superior || 0);
         setObsReceita(res.data.obs_receita || '');
         setObsDespesa(res.data.obs_despesa || '');
@@ -197,6 +238,7 @@ const PlanilhaMensal: React.FC<Props> = ({ casas, categorias, externalUsuarioId,
       } else {
         setPlanilha(null);
         setEditValues({});
+        setEntryLogs([]);
         setApontamentos('');
         setNumMissas(0);
         setObsReceita('');
@@ -477,7 +519,7 @@ const PlanilhaMensal: React.FC<Props> = ({ casas, categorias, externalUsuarioId,
           </div>
           <div className="filter-item">
             <label>{t('planilha.community', 'Casa Religiosa')}</label>
-            <select value={selectedCasa} onChange={e => setSelectedCasa(e.target.value)} disabled={!!planilha || !!externalUsuarioId}>
+            <select value={selectedCasa} onChange={e => setSelectedCasa(e.target.value)} disabled={!isAdminGeral || !!planilha || !!externalUsuarioId}>
               <option value="">{t('planilha.select_house')}</option>
               {casas.map(c => <option key={c.id} value={c.id}>{c.nome}</option>)}
             </select>
@@ -629,6 +671,24 @@ const PlanilhaMensal: React.FC<Props> = ({ casas, categorias, externalUsuarioId,
               </div>
             </div>
 
+            {/* AVISO / INFORMATIVO */}
+            <div style={{
+              marginBottom: '20px',
+              padding: '16px 20px',
+              background: '#eff6ff',
+              border: '1px solid #bfdbfe',
+              borderRadius: '12px',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '14px',
+              color: '#1e40af'
+            }}>
+              <AlertCircle size={22} style={{ flexShrink: 0, color: '#2563eb' }} />
+              <div style={{ fontSize: '13px', lineHeight: '1.5' }}>
+                <strong>Aviso Importante:</strong> Todos os valores devem ser cadastrados exclusivamente através dos campos de <strong>Lançamentos Individuais</strong> abaixo ⬇️, (selecionando a categoria, o valor e a observação).⚠️ A tabela em cinza, é mais para a visualização, ela exibe apenas os totais acumulados, não é possível editar nela. ⚠️
+              </div>
+            </div>
+
             {/* INSERTION FORM AREA */}
             <div className="insertion-fields-card" style={{ marginBottom: '20px', padding: '24px', background: '#fff', borderRadius: '12px', border: '1px solid #e2e8f0', boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)' }}>
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '30px' }}>
@@ -718,15 +778,14 @@ const PlanilhaMensal: React.FC<Props> = ({ casas, categorias, externalUsuarioId,
               </div>
             </div>
 
-            {/* ── DEMONSTRATIVO DETALHADO (movido para o final) ── */}
-
+            {/* TABELA DE VISUALIZAÇÃO DOS VALORES (CINZA & BLOQUEADA) */}
             <div className="spreadsheet-grid" style={{ display: 'flex', gap: '20px', marginTop: '20px' }}>
               {/* RECEITAS */}
-              <div className="spreadsheet-column" style={{ flex: 1, border: '1px solid #e2e8f0', borderRadius: '8px', overflow: 'hidden', background: '#fff' }}>
-                <h4 className="column-title credito" style={{ background: '#dcfce7', color: '#166534', padding: '12px', margin: 0, display: 'flex', alignItems: 'center', gap: '8px', fontSize: '14px', fontWeight: 700 }}>
-                  <TrendingUp size={18} /> {t('planilha.receitas')}
+              <div className="spreadsheet-column" style={{ flex: 1, border: '1px solid #e2e8f0', borderRadius: '8px', overflow: 'hidden', background: '#f8fafc' }}>
+                <h4 className="column-title credito" style={{ background: '#e2e8f0', color: '#475569', padding: '12px', margin: 0, display: 'flex', alignItems: 'center', gap: '8px', fontSize: '14px', fontWeight: 700 }}>
+                  <TrendingUp size={18} color="#64748b" /> {t('planilha.receitas')} (Visualização)
                 </h4>
-                <div style={{ background: '#f8fafc', borderBottom: '1px solid #e2e8f0' }}>
+                <div style={{ background: '#f1f5f9', borderBottom: '1px solid #e2e8f0' }}>
                   <div style={{ display: 'flex', padding: '8px 12px', fontSize: '11px', fontWeight: 800, color: '#64748b' }}>
                     <div style={{ width: '40px' }}>CÓD.</div>
                     <div style={{ flex: 1 }}>DESCRIÇÃO</div>
@@ -735,39 +794,36 @@ const PlanilhaMensal: React.FC<Props> = ({ casas, categorias, externalUsuarioId,
                 </div>
                 <div style={{ padding: '2px 0' }}>
                   {categorias.filter(c => c.tipo === 'CREDITO' && c.perfil === 'PERFIL_1' && !blacklist.includes(c.nome)).map(cat => (
-                    <div key={cat.id} style={{ display: 'flex', borderBottom: '1px solid #f1f5f9', background: '#fff', fontSize: '12px', alignItems: 'center', padding: '4px 12px' }}>
-                      <div style={{ width: '40px', fontWeight: 700, color: '#166534' }}>{cat.codigo}</div>
-                      <div style={{ flex: 1, color: '#334155' }}>{cat.nome}</div>
+                    <div key={cat.id} style={{ display: 'flex', borderBottom: '1px solid #f1f5f9', background: '#f8fafc', fontSize: '12px', alignItems: 'center', padding: '4px 12px' }}>
+                      <div style={{ width: '40px', fontWeight: 700, color: '#64748b' }}>{cat.codigo}</div>
+                      <div style={{ flex: 1, color: '#475569' }}>{cat.nome}</div>
                       <div style={{ width: '110px', textAlign: 'right' }}>
-                        <div style={{ display: 'inline-flex', alignItems: 'center', background: '#f8fafc', border: '1px solid #cbd5e1', borderRadius: '4px', padding: '2px 8px', width: '100px' }}>
+                        <div style={{ display: 'inline-flex', alignItems: 'center', background: '#e2e8f0', border: '1px solid #cbd5e1', borderRadius: '4px', padding: '2px 8px', width: '100px' }}>
                           <input
                             type="text"
                             placeholder="0,00"
                             value={formatCurrencyMask(numToDigits(editValues[cat.id] || 0))}
-                            onChange={e => {
-                              const masked = formatCurrencyMask(e.target.value);
-                              setEditValues({ ...editValues, [cat.id]: parseMaskedCurrency(masked) });
-                            }}
-                            style={{ textAlign: 'right', border: 'none', background: 'transparent', width: '100%', fontWeight: 600, fontSize: '12px', color: '#0f172a' }}
-                            disabled={isLocked}
+                            readOnly
+                            disabled
+                            style={{ textAlign: 'right', border: 'none', background: 'transparent', width: '100%', fontWeight: 600, fontSize: '12px', color: '#475569', cursor: 'not-allowed' }}
                           />
                         </div>
                       </div>
                     </div>
                   ))}
                 </div>
-                <div style={{ background: '#f0fdf4', padding: '12px', display: 'flex', justifyContent: 'space-between', fontWeight: 800, borderTop: '2px solid #bcf0da', color: '#166534' }}>
+                <div style={{ background: '#f1f5f9', padding: '12px', display: 'flex', justifyContent: 'space-between', fontWeight: 800, borderTop: '2px solid #e2e8f0', color: '#334155' }}>
                   <span>{t('planilha.total_receitas')}</span>
                   <strong style={{ fontSize: '15px' }}>R$ {totals.credito.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</strong>
                 </div>
               </div>
 
               {/* DESPESAS */}
-              <div className="spreadsheet-column" style={{ flex: 1, border: '1px solid #e2e8f0', borderRadius: '8px', overflow: 'hidden', background: '#fff' }}>
-                <h4 className="column-title debito" style={{ background: '#fee2e2', color: '#991b1b', padding: '12px', margin: 0, display: 'flex', alignItems: 'center', gap: '8px', fontSize: '14px', fontWeight: 700 }}>
-                  <TrendingDown size={18} /> {t('planilha.despesas')}
+              <div className="spreadsheet-column" style={{ flex: 1, border: '1px solid #e2e8f0', borderRadius: '8px', overflow: 'hidden', background: '#f8fafc' }}>
+                <h4 className="column-title debito" style={{ background: '#e2e8f0', color: '#475569', padding: '12px', margin: 0, display: 'flex', alignItems: 'center', gap: '8px', fontSize: '14px', fontWeight: 700 }}>
+                  <TrendingDown size={18} color="#64748b" /> {t('planilha.despesas')} (Visualização)
                 </h4>
-                <div style={{ background: '#f8fafc', borderBottom: '1px solid #e2e8f0' }}>
+                <div style={{ background: '#f1f5f9', borderBottom: '1px solid #e2e8f0' }}>
                   <div style={{ display: 'flex', padding: '8px 12px', fontSize: '11px', fontWeight: 800, color: '#64748b' }}>
                     <div style={{ width: '40px' }}>CÓD.</div>
                     <div style={{ flex: 1 }}>DESCRIÇÃO</div>
@@ -776,45 +832,33 @@ const PlanilhaMensal: React.FC<Props> = ({ casas, categorias, externalUsuarioId,
                 </div>
                 <div style={{ padding: '2px 0' }}>
                   {categorias.filter(c => c.tipo === 'DEBITO' && c.perfil === 'PERFIL_1' && !blacklist.includes(c.nome)).map(cat => (
-                    <div key={cat.id} style={{ display: 'flex', borderBottom: '1px solid #f1f5f9', background: '#fff', fontSize: '12px', alignItems: 'center', padding: '4px 12px' }}>
-                      <div style={{ width: '40px', fontWeight: 700, color: '#991b1b' }}>{cat.codigo}</div>
-                      <div style={{ flex: 1, color: '#334155' }}>{cat.nome}</div>
+                    <div key={cat.id} style={{ display: 'flex', borderBottom: '1px solid #f1f5f9', background: '#f8fafc', fontSize: '12px', alignItems: 'center', padding: '4px 12px' }}>
+                      <div style={{ width: '40px', fontWeight: 700, color: '#64748b' }}>{cat.codigo}</div>
+                      <div style={{ flex: 1, color: '#475569' }}>{cat.nome}</div>
                       <div style={{ width: '110px', textAlign: 'right' }}>
-                        <div style={{ display: 'inline-flex', alignItems: 'center', background: '#f8fafc', border: '1px solid #cbd5e1', borderRadius: '4px', padding: '2px 8px', width: '100px' }}>
+                        <div style={{ display: 'inline-flex', alignItems: 'center', background: '#e2e8f0', border: '1px solid #cbd5e1', borderRadius: '4px', padding: '2px 8px', width: '100px' }}>
                           <input
                             type="text"
                             placeholder="0,00"
                             value={formatCurrencyMask(numToDigits(editValues[cat.id] || 0))}
-                            onChange={e => {
-                              const masked = formatCurrencyMask(e.target.value);
-                              setEditValues({ ...editValues, [cat.id]: parseMaskedCurrency(masked) });
-                            }}
-                            style={{ textAlign: 'right', border: 'none', background: 'transparent', width: '100%', fontWeight: 600, fontSize: '12px', color: '#0f172a' }}
-                            disabled={isLocked}
+                            readOnly
+                            disabled
+                            style={{ textAlign: 'right', border: 'none', background: 'transparent', width: '100%', fontWeight: 600, fontSize: '12px', color: '#475569', cursor: 'not-allowed' }}
                           />
                         </div>
                       </div>
                     </div>
                   ))}
                 </div>
-                <div style={{ background: '#fef2f2', padding: '12px', display: 'flex', justifyContent: 'space-between', fontWeight: 800, borderTop: '2px solid #fecaca', color: '#991b1b' }}>
+                <div style={{ background: '#f1f5f9', padding: '12px', display: 'flex', justifyContent: 'space-between', fontWeight: 800, borderTop: '2px solid #e2e8f0', color: '#334155' }}>
                   <span>{t('planilha.total_despesas')}</span>
                   <strong style={{ fontSize: '15px' }}>R$ {totals.debito.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</strong>
                 </div>
 
                 <div style={{ padding: '15px', background: '#f8fafc', borderTop: '1px solid #e2e8f0' }}>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px' }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                      <span style={{ color: '#ef4444', fontSize: '11px', fontWeight: 700 }}>11.11</span>
-                      <label style={{ fontWeight: 800, fontSize: '13px', color: '#334155' }}>Excedente Retido</label>
-                    </div>
-                    <strong style={{ fontSize: '16px', color: totals.saldo >= 0 ? '#166534' : '#991b1b' }}>
-                      R$ {totals.saldo.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
-                    </strong>
-                  </div>
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                     <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                      <span style={{ color: '#ef4444', fontSize: '11px', fontWeight: 700 }}>70</span>
+                      <span style={{ color: '#64748b', fontSize: '11px', fontWeight: 700 }}>70</span>
                       <label style={{ fontWeight: 700, fontSize: '13px', color: '#475569' }}>Missas Celebradas (nº)</label>
                     </div>
                     <input
@@ -828,8 +872,6 @@ const PlanilhaMensal: React.FC<Props> = ({ casas, categorias, externalUsuarioId,
                 </div>
               </div>
             </div>
-
-
 
             <div className="spreadsheet-summary" style={{ marginTop: '30px', padding: '25px', background: '#f1f5f9', borderRadius: '16px', border: '1px solid #cbd5e1', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: '20px' }}>
@@ -968,75 +1010,7 @@ const PlanilhaMensal: React.FC<Props> = ({ casas, categorias, externalUsuarioId,
 
           <div style={{ padding: '24px' }}>
 
-            {/* ══ SEÇÃO 1 — Itens da Planilha ══ */}
-            {(() => {
-              const planilhaReceitas = categorias.filter(c => c.tipo === 'CREDITO' && c.perfil === 'PERFIL_1' && !blacklist.includes(c.nome) && (editValues[c.id] || 0) > 0);
-              const planilhaDespesas = categorias.filter(c => c.tipo === 'DEBITO' && c.perfil === 'PERFIL_1' && !blacklist.includes(c.nome) && (editValues[c.id] || 0) > 0);
-              const hasPlanilha = planilhaReceitas.length > 0 || planilhaDespesas.length > 0;
-              return (
-                <div style={{ marginBottom: '24px' }}>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '14px' }}>
-                    <div style={{ width: '4px', height: '18px', background: 'linear-gradient(180deg,#0369a1,#0ea5e9)', borderRadius: '2px' }} />
-                    <span style={{ fontWeight: 800, fontSize: '13px', color: '#0c4a6e', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
-                      Itens da Planilha ({planilhaReceitas.length + planilhaDespesas.length})
-                    </span>
-                    <span style={{ marginLeft: '8px', fontSize: '10px', fontWeight: 600, color: '#94a3b8', fontStyle: 'italic' }}>
-                      — valores digitados diretamente nas linhas da grade
-                    </span>
-                  </div>
-                  {hasPlanilha ? (
-                    <div style={{ borderRadius: '10px', overflow: 'hidden', border: '1px solid #bae6fd' }}>
-                      <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '12px' }}>
-                        <thead>
-                          <tr style={{ background: 'linear-gradient(90deg,#0369a1,#0ea5e9)' }}>
-                            <th style={{ padding: '10px 14px', textAlign: 'left', color: '#e0f2fe', fontWeight: 700, fontSize: '10px', textTransform: 'uppercase', letterSpacing: '0.06em' }}>Tipo</th>
-                            <th style={{ padding: '10px 14px', textAlign: 'left', color: '#e0f2fe', fontWeight: 700, fontSize: '10px', textTransform: 'uppercase', letterSpacing: '0.06em' }}>Categoria</th>
-                            <th style={{ padding: '10px 14px', textAlign: 'right', color: '#e0f2fe', fontWeight: 700, fontSize: '10px', textTransform: 'uppercase', letterSpacing: '0.06em' }}>Valor (R$)</th>
-                          </tr>
-                        </thead>
-                        <tbody>
-                          {planilhaReceitas.map((cat, idx) => (
-                            <tr key={`pr-${cat.id}`} style={{ background: idx % 2 === 0 ? '#fff' : '#f0f9ff', borderBottom: '1px solid #e0f2fe' }}>
-                              <td style={{ padding: '9px 14px' }}>
-                                <span style={{ display: 'inline-flex', alignItems: 'center', gap: '4px', padding: '3px 10px', borderRadius: '20px', fontSize: '10px', fontWeight: 700, background: '#d1fae5', color: '#065f46' }}>
-                                  ▲ Receita
-                                </span>
-                              </td>
-                              <td style={{ padding: '9px 14px', color: '#0c4a6e', fontWeight: 600 }}>{cat.nome}</td>
-                              <td style={{ padding: '9px 14px', textAlign: 'right', fontWeight: 800, fontSize: '13px', color: '#065f46' }}>
-                                {(editValues[cat.id] || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
-                              </td>
-                            </tr>
-                          ))}
-                          {planilhaDespesas.map((cat, idx) => (
-                            <tr key={`pd-${cat.id}`} style={{ background: (planilhaReceitas.length + idx) % 2 === 0 ? '#fff' : '#f0f9ff', borderBottom: '1px solid #e0f2fe' }}>
-                              <td style={{ padding: '9px 14px' }}>
-                                <span style={{ display: 'inline-flex', alignItems: 'center', gap: '4px', padding: '3px 10px', borderRadius: '20px', fontSize: '10px', fontWeight: 700, background: '#fee2e2', color: '#991b1b' }}>
-                                  ▼ Despesa
-                                </span>
-                              </td>
-                              <td style={{ padding: '9px 14px', color: '#0c4a6e', fontWeight: 600 }}>{cat.nome}</td>
-                              <td style={{ padding: '9px 14px', textAlign: 'right', fontWeight: 800, fontSize: '13px', color: '#991b1b' }}>
-                                {(editValues[cat.id] || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
-                              </td>
-                            </tr>
-                          ))}
-                        </tbody>
-                      </table>
-                    </div>
-                  ) : (
-                    <div style={{ textAlign: 'center', padding: '20px', color: '#94a3b8', background: '#f8fafc', borderRadius: '10px', border: '1px dashed #cbd5e1', fontSize: '12px', fontStyle: 'italic' }}>
-                      Nenhum valor preenchido na planilha ainda.
-                    </div>
-                  )}
-                </div>
-              );
-            })()}
-
-            {/* Divisor */}
-            <div style={{ borderTop: '2px dashed #c7d2fe', marginBottom: '24px' }} />
-
-            {/* ══ SEÇÃO 2 — Lançamentos Individuais ══ */}
+            {/* ══ SEÇÃO — Lançamentos Individuais ══ */}
             <div style={{ marginBottom: '28px' }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '14px' }}>
                 <div style={{ width: '4px', height: '18px', background: 'linear-gradient(180deg,#03077f,#453bf2)', borderRadius: '2px' }} />
@@ -1057,7 +1031,7 @@ const PlanilhaMensal: React.FC<Props> = ({ casas, categorias, externalUsuarioId,
                         <th style={{ padding: '10px 14px', textAlign: 'left', color: '#c7d2fe', fontWeight: 700, fontSize: '10px', textTransform: 'uppercase', letterSpacing: '0.06em' }}>Observação</th>
                         <th style={{ padding: '10px 14px', textAlign: 'center', color: '#c7d2fe', fontWeight: 700, fontSize: '10px', textTransform: 'uppercase', letterSpacing: '0.06em' }}>Data / Hora</th>
                         <th style={{ padding: '10px 14px', textAlign: 'right', color: '#c7d2fe', fontWeight: 700, fontSize: '10px', textTransform: 'uppercase', letterSpacing: '0.06em' }}>Valor (R$)</th>
-                        <th style={{ padding: '10px 10px', textAlign: 'center', color: '#c7d2fe', fontWeight: 700, fontSize: '10px' }}></th>
+                        <th style={{ padding: '10px 10px', textAlign: 'center', color: '#c7d2fe', fontWeight: 700, fontSize: '10px' }}>Ação</th>
                       </tr>
                     </thead>
                     <tbody>
@@ -1090,9 +1064,9 @@ const PlanilhaMensal: React.FC<Props> = ({ casas, categorias, externalUsuarioId,
                           </td>
                           <td style={{ padding: '10px 10px', textAlign: 'center' }}>
                             <button
-                              title="Remover lançamento"
-                              onClick={() => setEntryLogs(prev => prev.filter(e => e.id !== entry.id))}
-                              style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#a5b4fc', fontSize: '14px', lineHeight: 1, padding: '2px 4px', borderRadius: '4px' }}
+                              title="Excluir lançamento"
+                              onClick={() => handleRemoveItem(entry.id)}
+                              style={{ background: '#fee2e2', border: 'none', cursor: 'pointer', color: '#ef4444', fontWeight: 700, fontSize: '13px', lineHeight: 1, padding: '4px 8px', borderRadius: '6px', transition: 'all 0.2s' }}
                             >✕</button>
                           </td>
                         </tr>
@@ -1107,21 +1081,18 @@ const PlanilhaMensal: React.FC<Props> = ({ casas, categorias, externalUsuarioId,
               )}
             </div>
 
-            {/* ══ Resumo consolidado (planilha + individuais) ══ */}
+            {/* ══ Resumo consolidado por categoria ══ */}
             {(() => {
-              // Build combined totals per category
               const receitaMap: Record<string, number> = {};
               const despesaMap: Record<string, number> = {};
 
-              // From grid
-              categorias.filter(c => c.tipo === 'CREDITO' && c.perfil === 'PERFIL_1' && !blacklist.includes(c.nome) && (editValues[c.id] || 0) > 0)
-                .forEach(c => { receitaMap[c.nome] = (receitaMap[c.nome] || 0) + (editValues[c.id] || 0); });
-              categorias.filter(c => c.tipo === 'DEBITO' && c.perfil === 'PERFIL_1' && !blacklist.includes(c.nome) && (editValues[c.id] || 0) > 0)
-                .forEach(c => { despesaMap[c.nome] = (despesaMap[c.nome] || 0) + (editValues[c.id] || 0); });
-
-              // From individual logs
-              entryLogs.filter(e => e.tipo === 'CREDITO').forEach(e => { receitaMap[e.categoriaNome] = (receitaMap[e.categoriaNome] || 0) + e.valor; });
-              entryLogs.filter(e => e.tipo === 'DEBITO').forEach(e => { despesaMap[e.categoriaNome] = (despesaMap[e.categoriaNome] || 0) + e.valor; });
+              entryLogs.forEach(entry => {
+                if (entry.tipo === 'CREDITO') {
+                  receitaMap[entry.categoriaNome] = (receitaMap[entry.categoriaNome] || 0) + entry.valor;
+                } else {
+                  despesaMap[entry.categoriaNome] = (despesaMap[entry.categoriaNome] || 0) + entry.valor;
+                }
+              });
 
               const totalRec = Object.values(receitaMap).reduce((s, v) => s + v, 0);
               const totalDep = Object.values(despesaMap).reduce((s, v) => s + v, 0);
@@ -1134,7 +1105,7 @@ const PlanilhaMensal: React.FC<Props> = ({ casas, categorias, externalUsuarioId,
                   <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '14px' }}>
                     <div style={{ width: '4px', height: '18px', background: 'linear-gradient(180deg,#059669,#dc2626)', borderRadius: '2px' }} />
                     <span style={{ fontWeight: 800, fontSize: '13px', color: '#1e293b', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Resumo Consolidado</span>
-                    <span style={{ marginLeft: '8px', fontSize: '10px', fontWeight: 600, color: '#94a3b8', fontStyle: 'italic' }}>— planilha + lançamentos individuais</span>
+                    <span style={{ marginLeft: '8px', fontSize: '10px', fontWeight: 600, color: '#94a3b8', fontStyle: 'italic' }}>— total por categoria</span>
                   </div>
                   <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
                     <div style={{ border: '1px solid #a7f3d0', borderRadius: '10px', overflow: 'hidden' }}>
@@ -1204,18 +1175,6 @@ const PlanilhaMensal: React.FC<Props> = ({ casas, categorias, externalUsuarioId,
                 </>
               );
             })()}
-
-            {/* ── Saldo final ── */}
-            <div style={{
-              marginTop: '20px', padding: '18px 24px', borderRadius: '12px',
-              background: 'linear-gradient(90deg, #03077fff, #453bf2ff)',
-              display: 'flex', justifyContent: 'space-between', alignItems: 'center',
-            }}>
-              <span style={{ fontWeight: 700, fontSize: '15px', color: '#c7d2fe', textTransform: 'uppercase', letterSpacing: '0.06em' }}>Saldo (Excedente Retido)</span>
-              <strong style={{ fontSize: '24px', color: totals.saldo >= 0 ? '#a5f3c3' : '#fca5a5', fontWeight: 900 }}>
-                R$ {totals.saldo.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
-              </strong>
-            </div>
           </div>
         </div>
       )}
