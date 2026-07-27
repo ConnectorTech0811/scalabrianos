@@ -1,5 +1,5 @@
 import React, { useState, useMemo, useEffect } from 'react';
-import { Edit2, X, Loader2, AlertCircle, Plus, DollarSign, Trash2, Download, Home as HomeIcon, Save, Search, Eye, ChevronLeft, ChevronRight } from 'lucide-react';
+import { Edit2, X, Loader2, AlertCircle, Plus, Trash2, Download, Home as HomeIcon, Save, Eye, ChevronLeft, ChevronRight } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { useAuth } from '../context/AuthContext';
 import { useNavigate } from 'react-router-dom';
