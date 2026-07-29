@@ -1,5 +1,5 @@
 import React, { useState, useMemo, useEffect } from 'react';
-import { Edit2, X, Loader2, AlertCircle, Plus, Trash2, Download, Home as HomeIcon, Save, Eye, ChevronLeft, ChevronRight } from 'lucide-react';
+import { Edit2, X, Loader2, AlertCircle, Plus, Trash2, Download, Home as HomeIcon, Save, Eye, Search, DollarSign, ChevronLeft, ChevronRight } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { useAuth } from '../context/AuthContext';
 import { useNavigate } from 'react-router-dom';
@@ -171,45 +171,48 @@ const CasasReligiosas: React.FC = () => {
       <div className="filters-card">
         <div className="filters-grid">
           <div className="filter-group">
-            <label>{t('casas.name')}</label>
+            <label>PRESENÇA MISSIONÁRIA</label>
             <input
               type="text"
-              placeholder={t('casas.search_name')}
+              placeholder="Filtrar por nome..."
               value={filterName}
               onChange={(e) => setFilterName(e.target.value)}
             />
           </div>
           <div className="filter-group">
-            <label>{t('casas.city')}</label>
+            <label>CIDADE</label>
             <input
               type="text"
-              placeholder={t('casas.search_city')}
+              placeholder="Filtrar por cidade..."
               value={filterCity}
               onChange={(e) => setFilterCity(e.target.value)}
             />
           </div>
           <div className="filter-group">
-            <label>{t('casas.country')}</label>
+            <label>PAÍS</label>
             <input
               type="text"
-              placeholder={t('casas.search_country')}
+              placeholder="Filtrar por país..."
               value={filterCountry}
               onChange={(e) => setFilterCountry(e.target.value)}
             />
           </div>
           <div className="filter-group">
-            <label>{t('casas.status')}</label>
+            <label>STATUS</label>
             <select value={filterStatus} onChange={(e) => setFilterStatus(e.target.value)}>
-              <option value="Todos">{t('casas.status_all')}</option>
-              <option value="ATIVO">{t('casas.status_active')}</option>
-              <option value="INATIVO">{t('casas.status_inactive')}</option>
+              <option value="Todos">Todos</option>
+              <option value="ATIVO">Ativo</option>
+              <option value="INATIVO">Inativo</option>
             </select>
           </div>
         </div>
 
-        <div className="filters-actions">
-          <button className="btn-clear" onClick={handleClearFilters}>
-            {t('casas.clear_filters')}
+        <div className="filters-actions" style={{ display: 'flex', gap: '10px' }}>
+          <button className="btn-clear" onClick={handleClearFilters} style={{ background: '#64748b', color: 'white', border: 'none' }}>
+            Limpar
+          </button>
+          <button className="btn-filter-main" style={{ display: 'flex', alignItems: 'center', gap: '6px', background: '#032b57', color: 'white', border: 'none' }}>
+            <Search size={18} /> Filtrar
           </button>
         </div>
       </div>
@@ -227,56 +230,77 @@ const CasasReligiosas: React.FC = () => {
           <p>{t('casas.loading')}</p>
         </div>
       ) : (
-        <div className="houses-grid">
-          {paginatedHouses.map((house) => (
-            <div key={house.id} className="house-card">
-              <div className="house-card-header">
-                <div className="house-icon">
-                  <HomeIcon size={24} />
-                </div>
-                <span className={`status-badge ${house.status.toLowerCase()}`}>
-                  {house.status === 'ATIVO' ? t('casas.status_active') : t('casas.status_inactive')}
-                </span>
-              </div>
-
-              <div className="house-card-body">
-                <h3>{house.nome}</h3>
-                {house.cnpj && (
-                  <p className="house-cnpj" style={{ fontSize: '12px', fontWeight: 600, color: '#475569', marginBottom: '4px' }}>
-                    CNPJ: {formatCNPJ(house.cnpj)}
-                  </p>
-                )}
-                <p className="house-address">{house.endereco}</p>
-                {house.regional && <p className="house-regional"><strong>{t('casas.country')}:</strong> {house.regional}</p>}
-                <p className="house-missionaries">
-                  <strong>{t('casas.missionaries_count')}:</strong> {house.missionarios_count}
-                </p>
-              </div>
-
-              <div className="house-card-actions">
-                <button
-                  className="btn-action-view"
-                  title="Ver Casa"
-                  onClick={() => navigate(`/casas-religiosas/${house.id}`)}
-                >
-                  <Eye size={16} /> Ver
-                </button>
-                {canEdit && (
-                  <>
-                    <button className="btn-action-edit" onClick={() => handleOpenEdit(house)} title={t('common.edit')}>
-                      <Edit2 size={16} /> Editar
-                    </button>
-                    <button className="btn-action-delete" onClick={() => handleDeleteHouse(house.id)} title={t('common.delete')}>
-                      <Trash2 size={16} />
-                    </button>
-                  </>
-                )}
-              </div>
-            </div>
-          ))}
+        <div className="data-table">
+          <table>
+            <thead>
+              <tr>
+                <th>ID</th>
+                <th>PRESENÇA MISSIONÁRIA</th>
+                <th>CIDADE/UF</th>
+                <th>PAÍS</th>
+                <th className="center">STATUS</th>
+                <th className="center">PM</th>
+                <th className="center">AÇÕES</th>
+              </tr>
+            </thead>
+            <tbody>
+              {paginatedHouses.map((house) => (
+                <tr key={house.id}>
+                  <td>#{house.id}</td>
+                  <td className="bold">{house.nome}</td>
+                  <td>{house.endereco || '---'}</td>
+                  <td>{house.regional || '---'}</td>
+                  <td className="center">
+                    <span className={`status-tag ${house.status.toLowerCase()}`}>
+                      {house.status}
+                    </span>
+                  </td>
+                  <td className="center">
+                    <span className="pm-code">{house.pm_code || '---'}</span>
+                  </td>
+                  <td className="center">
+                    <div className="house-actions">
+                      <button 
+                        className="btn-action-icon finance" 
+                        title={t('casas.cost_registration')}
+                        onClick={() => navigate('/financeiro', { state: { house_id: house.id } })}
+                      >
+                        <DollarSign size={16} />
+                      </button>
+                      {canEdit && (
+                        <>
+                          <button 
+                            className="btn-action-icon edit" 
+                            title={t('common.edit')}
+                            onClick={() => handleOpenEdit(house)}
+                          >
+                            <Edit2 size={16} />
+                          </button>
+                          <button 
+                            className="btn-action-icon delete" 
+                            title={t('common.delete')}
+                            onClick={() => handleDeleteHouse(house.id)}
+                          >
+                            <Trash2 size={16} />
+                          </button>
+                        </>
+                      )}
+                      <button 
+                        className="btn-action-icon view" 
+                        title={t('common.view')}
+                        onClick={() => navigate(`/casas-religiosas/${house.id}`)}
+                      >
+                        <Eye size={16} />
+                      </button>
+                    </div>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
 
           {filteredHouses.length === 0 && (
-            <div className="no-results">
+            <div className="no-results" style={{ padding: '2rem', textAlign: 'center', color: '#64748b' }}>
               <p>{t('casas.no_houses_found')}</p>
             </div>
           )}

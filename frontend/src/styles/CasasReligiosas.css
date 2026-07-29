@@ -269,81 +269,67 @@
     align-items: center;
 }
 
-.house-card-actions {
+.house-actions {
     display: flex;
-    gap: 8px;
-    margin-top: 1.25rem;
-    padding-top: 1rem;
-    border-top: 1px solid #f1f5f9;
+    justify-content: center;
     align-items: center;
+    gap: 6px;
 }
 
-.btn-action-view {
-    flex: 1;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    gap: 6px;
-    height: 36px;
-    padding: 0 12px;
-    background: #f8fafc;
-    color: #334155;
-    border: 1px solid #cbd5e1;
+.btn-action-icon {
+    width: 32px;
+    height: 32px;
     border-radius: 8px;
-    font-weight: 600;
-    font-size: 0.85rem;
-    cursor: pointer;
-    transition: all 0.2s;
-}
-
-.btn-action-view:hover {
-    background: #0284c7;
-    color: white;
-    border-color: #0284c7;
-}
-
-.btn-action-edit {
-    flex: 1;
     display: flex;
     align-items: center;
     justify-content: center;
-    gap: 6px;
-    height: 36px;
-    padding: 0 12px;
+    cursor: pointer;
+    transition: all 0.2s ease-in-out;
+    border: 1px solid transparent;
+}
+
+.btn-action-icon.finance {
+    background: #eff6ff;
+    color: #3b82f6;
+    border-color: #dbeafe;
+}
+.btn-action-icon.finance:hover {
+    background: #3b82f6;
+    color: white;
+    border-color: #3b82f6;
+}
+
+.btn-action-icon.edit {
     background: #f0fdf4;
     color: #166534;
-    border: 1px solid #bbf7d0;
-    border-radius: 8px;
-    font-weight: 600;
-    font-size: 0.85rem;
-    cursor: pointer;
-    transition: all 0.2s;
+    border-color: #dcfce7;
 }
-
-.btn-action-edit:hover {
+.btn-action-icon.edit:hover {
     background: #16a34a;
     color: white;
     border-color: #16a34a;
 }
 
-.btn-action-delete {
-    width: 36px;
-    height: 36px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
+.btn-action-icon.delete {
     background: #fef2f2;
     color: #dc2626;
-    border: 1px solid #fecaca;
-    border-radius: 8px;
-    cursor: pointer;
-    transition: all 0.2s;
+    border-color: #fee2e2;
 }
-
-.btn-action-delete:hover {
+.btn-action-icon.delete:hover {
     background: #dc2626;
     color: white;
     border-color: #dc2626;
+}
+
+.btn-action-icon.view {
+    background: #f8fafc;
+    color: #64748b;
+    border-color: #e2e8f0;
+}
+.btn-action-icon.view:hover {
+    background: #64748b;
+    color: white;
+    border-color: #64748b;
 }
 
 /* Pagination */
