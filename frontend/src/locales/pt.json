@@ -278,7 +278,17 @@
       "paroco": "Pároco",
       "vigario": "Vigário Paroquial",
       "tipo": "Tipo",
-      "pm": "PM"
+      "pm": "PM",
+      "search_name": "Buscar por nome...",
+      "search_city": "Buscar por cidade/endereço...",
+      "search_country": "Buscar por país/regional...",
+      "status_all": "Todos os status",
+      "status_active": "Ativo",
+      "status_inactive": "Inativo",
+      "clear_filters": "Limpar Filtros",
+      "loading": "Carregando presença missionária...",
+      "missionaries_count": "Missionários vinculados",
+      "no_houses_found": "Nenhuma presença missionária encontrada."
     },
     "reports": {
       "title": "Dashboard Analítico Financeiro",

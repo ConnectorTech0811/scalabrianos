@@ -11,12 +11,37 @@ const { sendWelcomeEmail, sendFirstAccessNotification, sendPasswordResetEmail } 
 const { validateCNPJ, formatCNPJ, cleanCNPJ } = require('./cnpjHelper');
 require('dotenv').config();
 
+const os = require('os');
+
+// Helper to get a writable uploads directory (handles read-only filesystems like Vercel/Lambda)
+const getUploadsDir = () => {
+  const localDir = path.join(__dirname, 'uploads', 'documentos');
+  try {
+    if (!fs.existsSync(localDir)) {
+      fs.mkdirSync(localDir, { recursive: true });
+    }
+    const testFile = path.join(localDir, `.write_test_${Date.now()}`);
+    fs.writeFileSync(testFile, 'test');
+    fs.unlinkSync(testFile);
+    return localDir;
+  } catch (err) {
+    const tmpDir = path.join(os.tmpdir(), 'uploads', 'documentos');
+    if (!fs.existsSync(tmpDir)) {
+      fs.mkdirSync(tmpDir, { recursive: true });
+    }
+    return tmpDir;
+  }
+};
+
 // Multer configuration for document uploads
 const storage = multer.diskStorage({
   destination: (req, file, cb) => {
-    const dir = path.join(__dirname, 'uploads', 'documentos');
-    if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
-    cb(null, dir);
+    try {
+      const dir = getUploadsDir();
+      cb(null, dir);
+    } catch (err) {
+      cb(err);
+    }
   },
   filename: (req, file, cb) => {
     const ext = path.extname(file.originalname);
@@ -71,9 +96,11 @@ app.use((req, res, next) => {
   next();
 });
 
-// Serve uploaded files - using /api prefix for proxy compatibility
+// Serve uploaded files - using /api prefix for proxy compatibility and fallback for os.tmpdir
 app.use('/api/uploads', express.static(path.join(__dirname, 'uploads')));
-app.use('/uploads', express.static(path.join(__dirname, 'uploads'))); // Fallback for direct access
+app.use('/api/uploads', express.static(path.join(os.tmpdir(), 'uploads')));
+app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
+app.use('/uploads', express.static(path.join(os.tmpdir(), 'uploads')));
 
 // Diagnostic logging for all requests
 app.use((req, res, next) => {
@@ -162,6 +189,16 @@ async function ensureOptionalSchema() {
           console.log(`[BACKEND] Added missing column ${column.name} to ${schema.table}`);
         }
       }
+    }
+
+    // Ensure foto_perfil is MEDIUMTEXT to store Base64 images reliably in serverless environments
+    try {
+      const [rows] = await db.query(`SHOW COLUMNS FROM tb_usuarios LIKE 'foto_perfil'`);
+      if (rows.length > 0 && rows[0].Type && !rows[0].Type.includes('text')) {
+        await db.query("ALTER TABLE tb_usuarios MODIFY COLUMN foto_perfil MEDIUMTEXT DEFAULT NULL");
+      }
+    } catch (colErr) {
+      console.error('[BACKEND] Could not alter foto_perfil to MEDIUMTEXT:', colErr?.message || colErr);
     }
   } catch (err) {
     console.error('[BACKEND] Optional schema ensure failed:', err?.message || err);
@@ -528,16 +565,20 @@ app.post('/api/meu-perfil/foto', authenticateToken, (req, res, next) => {
 }, async (req, res) => {
   if (!req.file) return res.status(400).json({ message: 'Nenhuma foto enviada' });
   const userId = req.user.id;
-  const fotoPath = `/uploads/documentos/${req.file.filename}`;
   try {
-    const dir = path.join(__dirname, 'uploads', 'documentos');
-    if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
+    // Read file and convert to Base64 Data URI to prevent loss on read-only/serverless containers
+    const fileBuffer = fs.readFileSync(req.file.path);
+    const mimeType = req.file.mimetype || 'image/jpeg';
+    const fotoDataUri = `data:${mimeType};base64,${fileBuffer.toString('base64')}`;
 
-    await db.query('UPDATE tb_usuarios SET foto_perfil = ? WHERE id = ?', [fotoPath, userId]);
-    res.json({ success: true, foto_perfil: fotoPath });
+    // Clean up temporary file
+    fs.unlink(req.file.path, () => {});
+
+    await db.query('UPDATE tb_usuarios SET foto_perfil = ? WHERE id = ?', [fotoDataUri, userId]);
+    res.json({ success: true, foto_perfil: fotoDataUri });
   } catch (error) {
     console.error('Erro ao salvar foto de perfil:', error);
-    res.status(500).json({ message: error.message });
+    res.status(500).json({ message: error.message || 'Erro ao salvar a foto de perfil.' });
   }
 });
 

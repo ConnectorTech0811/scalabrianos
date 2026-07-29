@@ -275,9 +275,21 @@
       "name": "Nombre de la Casa",
       "address": "Dirección",
       "status": "Estado",
+      "city": "Ciudad",
+      "country": "País",
       "missionaries": "Misioneros",
       "cost_registration": "Registro de Costos",
-      "regional_placeholder": "Ej: Sudeste"
+      "regional_placeholder": "Ej: Sudeste",
+      "search_name": "Buscar por nombre...",
+      "search_city": "Buscar por ciudad/dirección...",
+      "search_country": "Buscar por país/regional...",
+      "status_all": "Todos los estados",
+      "status_active": "Activo",
+      "status_inactive": "Inactivo",
+      "clear_filters": "Limpiar Filtros",
+      "loading": "Cargando presencia misionera...",
+      "missionaries_count": "Misioneros vinculados",
+      "no_houses_found": "No se encontró presencia misionera."
     },
     "reports": {
       "title": "Dashboard Analítico Financiero",

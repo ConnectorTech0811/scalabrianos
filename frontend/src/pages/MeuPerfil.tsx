@@ -217,7 +217,7 @@ const MeuPerfil: React.FC = () => {
         <div className="meu-perfil-header" style={{ position: 'relative' }}>
           <div className="avatar-wrapper" onClick={handleAvatarClick}>
             {perfil?.foto_perfil ? (
-              <img src={`${api.defaults.baseURL}${perfil.foto_perfil}`} alt="Perfil" className="avatar-img" />
+              <img src={perfil.foto_perfil.startsWith('data:') || perfil.foto_perfil.startsWith('http') ? perfil.foto_perfil : `${api.defaults.baseURL}${perfil.foto_perfil}`} alt="Perfil" className="avatar-img" />
             ) : (
               <span>{getInitials(perfil?.nome || user?.nome || '')}</span>
             )}

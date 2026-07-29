@@ -87,174 +87,319 @@
     display: flex;
     gap: 1.5rem;
     align-items: flex-end;
-    border: 1px solid rgba(0, 0, 0, 0.03);
+    border: 1px solid rgba(0, 0, 0, 0.04);
 }
 
-.search-input-with-btn {
-    display: flex;
-    gap: 12px;
-}
-
-.search-input-with-btn input {
+.filters-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+    gap: 1.25rem;
     flex: 1;
 }
 
-.btn-filter-main {
+.filter-group {
     display: flex;
-    align-items: center;
-    gap: 8px;
-    background: var(--primary);
-    color: white;
-    border: none;
+    flex-direction: column;
+    gap: 6px;
+}
+
+.filter-group label {
+    font-size: 0.75rem;
+    font-weight: 700;
+    color: #475569;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+.filter-group input,
+.filter-group select {
+    height: 42px;
+    padding: 0 12px;
+    border: 1px solid #cbd5e1;
     border-radius: 8px;
-    padding: 0 1.5rem;
+    font-size: 0.9rem;
+    outline: none;
+    background: #f8fafc;
+    color: #1e293b;
+    transition: all 0.2s;
+}
+
+.filter-group input:focus,
+.filter-group select:focus {
+    border-color: var(--primary, #0284c7);
+    background: white;
+    box-shadow: 0 0 0 3px rgba(2, 132, 199, 0.12);
+}
+
+.filters-actions {
+    display: flex;
+    align-items: flex-end;
+}
+
+.btn-clear {
+    height: 42px;
+    padding: 0 1.25rem;
+    border: 1px solid #cbd5e1;
+    background: white;
+    color: #475569;
+    border-radius: 8px;
     font-weight: 600;
     cursor: pointer;
     transition: all 0.2s;
 }
 
-.btn-filter-main:hover {
-    background: var(--primary-hover);
-    transform: translateY(-1px);
+.btn-clear:hover {
+    background: #f1f5f9;
+    color: #0f172a;
+    border-color: #94a3b8;
 }
 
-.btn-clear {
-    padding: 0.75rem 1.5rem;
-    border: 1px solid #e2e8f0;
-    background: white;
-    color: #64748b;
-    border-radius: 8px;
-    font-weight: 600;
-    cursor: pointer;
+/* Houses Card Grid */
+.houses-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+    gap: 1.5rem;
+    margin-top: 0.5rem;
 }
 
-.data-table {
+.house-card {
     background: white;
     border-radius: 16px;
-    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.04);
-    overflow: hidden;
-    border: 1px solid rgba(0, 0, 0, 0.03);
+    border: 1px solid #e2e8f0;
+    box-shadow: 0 4px 16px rgba(0,0,0,0.04);
+    padding: 1.5rem;
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+    transition: all 0.25s ease;
 }
 
-table {
-    width: 100%;
-    border-collapse: collapse;
+.house-card:hover {
+    transform: translateY(-3px);
+    box-shadow: 0 12px 24px rgba(0,0,0,0.08);
+    border-color: #cbd5e1;
 }
 
-th {
-    text-align: left;
-    padding: 1.25rem 1rem;
-    background-color: #f8fafc;
+.house-card-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.house-icon {
+    width: 44px;
+    height: 44px;
+    border-radius: 12px;
+    background: #e0f2fe;
+    color: var(--primary, #0284c7);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.status-badge {
+    padding: 4px 12px;
+    border-radius: 20px;
     font-size: 0.75rem;
     font-weight: 700;
     text-transform: uppercase;
     letter-spacing: 0.5px;
-    color: #475569;
-    border-bottom: 2px solid #e2e8f0;
 }
 
-td {
-    padding: 1rem;
-    border-bottom: 1px solid #f1f5f9;
-    font-size: 0.95rem;
-    transition: background-color 0.2s;
+.status-badge.ativo {
+    background: #dcfce7;
+    color: #15803d;
 }
 
-tr:hover td {
-    background-color: #f8fafc;
+.status-badge.inativo {
+    background: #f1f5f9;
+    color: #64748b;
 }
 
-.id-cell {
+.house-card-body {
+    margin-top: 1rem;
     display: flex;
-    align-items: center;
-    gap: 0.75rem;
+    flex-direction: column;
+    gap: 0.5rem;
+    flex: 1;
 }
 
-.view-btn {
-    background: none;
-    border: none;
-    color: var(--primary);
-    cursor: pointer;
-    display: flex;
-    align-items: center;
-    padding: 4px;
-    border-radius: 4px;
-    transition: background-color 0.2s;
-}
-
-.view-btn:hover {
-    background-color: var(--primary-light);
-}
-
-.status-tag {
-    padding: 0.25rem 0.75rem;
-    border-radius: 9999px;
-    font-size: 0.75rem;
+.house-card-body h3 {
+    font-size: 1.1rem;
     font-weight: 700;
+    color: #0f172a;
+    margin: 0;
+    line-height: 1.35;
 }
 
-.status-tag.ativo {
-    background-color: #dcfce7;
-    color: #166534;
+.house-cnpj {
+    font-size: 0.75rem;
+    font-weight: 600;
+    color: #475569;
+    background: #f1f5f9;
+    padding: 2px 8px;
+    border-radius: 4px;
+    display: inline-block;
+    width: fit-content;
+    font-family: monospace;
 }
 
-.center {
-    text-align: center;
+.house-address {
+    font-size: 0.875rem;
+    color: #475569;
+    margin: 4px 0;
+    line-height: 1.4;
 }
 
-/* Unified Lite Action Buttons */
-.pm-code {
-    display: inline-flex;
+.house-regional {
+    font-size: 0.825rem;
+    color: #64748b;
+}
+
+.house-missionaries {
+    margin-top: auto;
+    font-size: 0.85rem;
+    color: #0369a1;
+    background: #f0f9ff;
+    padding: 8px 12px;
+    border-radius: 8px;
+    border: 1px solid #bae6fd;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.house-card-actions {
+    display: flex;
+    gap: 8px;
+    margin-top: 1.25rem;
+    padding-top: 1rem;
+    border-top: 1px solid #f1f5f9;
+    align-items: center;
+}
+
+.btn-action-view {
+    flex: 1;
+    display: flex;
     align-items: center;
     justify-content: center;
-    min-width: 72px;
-    white-space: nowrap;
-    background: #f1f5f9;
-    color: #475569;
-    padding: 4px 10px;
-    border-radius: 6px;
-    font-family: 'Monaco', 'Consolas', monospace;
-    font-weight: 700;
+    gap: 6px;
+    height: 36px;
+    padding: 0 12px;
+    background: #f8fafc;
+    color: #334155;
+    border: 1px solid #cbd5e1;
+    border-radius: 8px;
+    font-weight: 600;
     font-size: 0.85rem;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+.btn-action-view:hover {
+    background: #0284c7;
+    color: white;
+    border-color: #0284c7;
+}
+
+.btn-action-edit {
+    flex: 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    height: 36px;
+    padding: 0 12px;
+    background: #f0fdf4;
+    color: #166534;
+    border: 1px solid #bbf7d0;
+    border-radius: 8px;
+    font-weight: 600;
+    font-size: 0.85rem;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+.btn-action-edit:hover {
+    background: #16a34a;
+    color: white;
+    border-color: #16a34a;
+}
+
+.btn-action-delete {
+    width: 36px;
+    height: 36px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: #fef2f2;
+    color: #dc2626;
+    border: 1px solid #fecaca;
+    border-radius: 8px;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+.btn-action-delete:hover {
+    background: #dc2626;
+    color: white;
+    border-color: #dc2626;
+}
+
+/* Pagination */
+.pagination {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 1rem;
+    margin-top: 2rem;
+    padding: 1rem;
+    background: white;
+    border-radius: 12px;
     border: 1px solid #e2e8f0;
 }
 
-.btn-action-icon {
-    width: 34px;
-    height: 34px;
-    border-radius: 8px;
+.pagination-btn {
     display: flex;
     align-items: center;
     justify-content: center;
+    width: 36px;
+    height: 36px;
+    border: 1px solid #cbd5e1;
+    background: white;
+    border-radius: 8px;
+    color: #475569;
     cursor: pointer;
     transition: all 0.2s;
-    border: 1px solid transparent;
 }
 
-.btn-action-icon.finance {
-    background: #eff6ff;
-    color: #3b82f6;
+.pagination-btn:disabled {
+    opacity: 0.4;
+    cursor: not-allowed;
+    background: #f1f5f9;
 }
-.btn-action-icon.finance:hover { background: #3b82f6; color: white; }
 
-.btn-action-icon.edit {
-    background: #f0fdf4;
-    color: #10b981;
+.pagination-btn:not(:disabled):hover {
+    background: #0284c7;
+    color: white;
+    border-color: #0284c7;
 }
-.btn-action-icon.edit:hover { background: #10b981; color: white; }
 
-.btn-action-icon.delete {
-    background: #fef2f2;
-    color: #ef4444;
+.pagination-info {
+    font-size: 0.875rem;
+    font-weight: 600;
+    color: #475569;
 }
-.btn-action-icon.delete:hover { background: #ef4444; color: white; }
 
-.btn-action-icon.view {
-    background: #f8fafc;
-    color: #64748b;
-    border-color: #e2e8f0;
+@media (max-width: 768px) {
+    .filters-card {
+        flex-direction: column;
+        align-items: stretch;
+    }
+    .houses-grid {
+        grid-template-columns: 1fr;
+    }
 }
-.btn-action-icon.view:hover { background: #64748b; color: white; }
 .modal-overlay {
     position: fixed;
     top: 0;
