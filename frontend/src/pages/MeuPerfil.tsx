@@ -141,8 +141,10 @@ const MeuPerfil: React.FC = () => {
           window.location.reload();
         }
       }
-    } catch (err) {
-      alert('Erro ao enviar foto');
+    } catch (err: any) {
+      console.error('Erro ao enviar foto:', err);
+      const message = err.response?.data?.message || 'Erro ao enviar foto';
+      alert(message);
     }
   };
 

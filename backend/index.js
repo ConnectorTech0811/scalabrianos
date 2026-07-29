@@ -130,6 +130,12 @@ async function ensureOptionalSchema() {
   try {
     const schemas = [
       {
+        table: 'tb_usuarios',
+        columns: [
+          { name: 'foto_perfil', sql: "ALTER TABLE tb_usuarios ADD COLUMN foto_perfil VARCHAR(500) DEFAULT NULL" }
+        ]
+      },
+      {
         table: 'tb_casas_religiosas',
         columns: [
           { name: 'regional', sql: "ALTER TABLE tb_casas_religiosas ADD COLUMN regional VARCHAR(255)" },
@@ -511,14 +517,26 @@ app.put('/api/meu-perfil', authenticateToken, async (req, res) => {
   }
 });
 
-app.post('/api/meu-perfil/foto', authenticateToken, upload.single('foto'), async (req, res) => {
+app.post('/api/meu-perfil/foto', authenticateToken, (req, res, next) => {
+  upload.single('foto')(req, res, (err) => {
+    if (err) {
+      console.error('Erro no upload de foto (multer):', err);
+      return res.status(400).json({ message: err.message || 'Erro ao processar imagem.' });
+    }
+    next();
+  });
+}, async (req, res) => {
   if (!req.file) return res.status(400).json({ message: 'Nenhuma foto enviada' });
   const userId = req.user.id;
   const fotoPath = `/uploads/documentos/${req.file.filename}`;
   try {
+    const dir = path.join(__dirname, 'uploads', 'documentos');
+    if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
+
     await db.query('UPDATE tb_usuarios SET foto_perfil = ? WHERE id = ?', [fotoPath, userId]);
     res.json({ success: true, foto_perfil: fotoPath });
   } catch (error) {
+    console.error('Erro ao salvar foto de perfil:', error);
     res.status(500).json({ message: error.message });
   }
 });
