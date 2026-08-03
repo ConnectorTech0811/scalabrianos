@@ -987,14 +987,10 @@ const Missionarios: React.FC = () => {
 
                   {/* ── Sacramentos ── */}
                   <div className="wizard-divider" style={{ fontSize: '0.78rem', marginBottom: '8px' }}>Informações Religiosas</div>
-                  <div className="form-row-3" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '14px', marginBottom: '10px' }}>
+                  <div className="form-row-2" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '14px', marginBottom: '10px' }}>
                     <div className="form-group">
                       <label>Batismo</label>
                       <input type="date" value={wizardData.data_batismo} onChange={e => set('data_batismo', e.target.value)} />
-                    </div>
-                    <div className="form-group">
-                      <label>1ª Comunhão</label>
-                      <input type="date" value={wizardData.data_primeira_comunhao} onChange={e => set('data_primeira_comunhao', e.target.value)} />
                     </div>
                     <div className="form-group">
                       <label>Crisma</label>
@@ -1002,16 +998,11 @@ const Missionarios: React.FC = () => {
                     </div>
                   </div>
 
-                  <div className="form-row-3" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '14px', marginBottom: '10px' }}>
+                  <div className="form-row-2" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '14px', marginBottom: '10px' }}>
                     <div className="form-group">
                       <label>Certidão de Batismo</label>
                       <input type="file" accept=".pdf,.jpg,.jpeg,.png" onChange={e => setBatismoDocFile(e.target.files?.[0] || null)} />
                       {batismoDocFile && <span className="file-selected">{batismoDocFile.name}</span>}
-                    </div>
-                    <div className="form-group">
-                      <label>Certidão de 1ª Comunhão</label>
-                      <input type="file" accept=".pdf,.jpg,.jpeg,.png" onChange={e => setComunhaoDocFile(e.target.files?.[0] || null)} />
-                      {comunhaoDocFile && <span className="file-selected">{comunhaoDocFile.name}</span>}
                     </div>
                     <div className="form-group">
                       <label>Certidão de Crisma</label>

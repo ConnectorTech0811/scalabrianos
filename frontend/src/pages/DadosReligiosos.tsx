@@ -132,16 +132,6 @@ const DadosReligiosos: React.FC = () => {
             />
           </div>
           <div className="form-group">
-            <label>1ª Comunhão</label>
-            <input
-              type="date"
-              name="data_primeira_comunhao"
-              value={formData.data_primeira_comunhao}
-              onChange={handleInputChange}
-              disabled={!canEdit}
-            />
-          </div>
-          <div className="form-group">
             <label>Crisma</label>
             <input
               type="date"

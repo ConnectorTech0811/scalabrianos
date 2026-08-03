@@ -164,7 +164,7 @@ const DadosCivis: React.FC = () => {
           </div>
 
           <div className="form-group">
-            <label>Naturalidade</label>
+            <label>Nascimento</label>
             <input 
               type="text" 
               name="cidade_estado"

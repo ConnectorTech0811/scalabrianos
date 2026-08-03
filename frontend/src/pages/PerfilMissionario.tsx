@@ -4,7 +4,7 @@ import {
   User, MapPin, BookOpen, Home as HomeIcon, Loader2, AlertCircle,
   Save, Trash2, Plus, Star, FileText, Download, ShieldCheck, Eye,
   Activity, ChevronLeft, DollarSign, GraduationCap, Upload, Lock,
-  Users, CheckCircle
+  Users, CheckCircle, Printer, ChevronDown, ChevronRight, Edit
 } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { useAuth } from '../context/AuthContext';
@@ -120,6 +120,7 @@ interface FormacaoAcademica {
   curso: string;
   faculdade: string;
   periodo: string;
+  observacoes?: string;
   doc_path?: string;
 }
 
@@ -128,6 +129,7 @@ interface AtividadeMissionaria {
   lugar: string;
   periodo: string;
   missao?: string;
+  funcao_atividade?: string;
 }
 
 interface ObraRealizada {
@@ -292,6 +294,315 @@ const PerfilMissionario: React.FC = () => {
   const [tempForm, setTempForm] = useState<Record<string, any>>({});
   const [newPassword, setNewPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
+
+  // Itinerary cascade state
+  const [expandedItinSections, setExpandedItinSections] = useState<Record<string, boolean>>({ '4.1': true, '4.2': false, '4.3': false, '4.4': false });
+  const toggleItinSection = (key: string) => setExpandedItinSections(prev => ({ ...prev, [key]: !prev[key] }));
+
+  // Sidebar cascade for Itinerário Formativo
+  const [itinSidebarExpanded, setItinSidebarExpanded] = useState(false);
+
+  // Editing state for formação acadêmica and atividade missionária
+  const [editingFormacao, setEditingFormacao] = useState<number | null>(null);
+  const [editingAtividade, setEditingAtividade] = useState<number | null>(null);
+
+  // Print utility function for individual sections (Premium & Clean)
+  const printSection = (title: string, contentId: string) => {
+    const content = document.getElementById(contentId);
+    if (!content) return;
+
+    // Clone element to manipulate without affecting UI
+    const clone = content.cloneNode(true) as HTMLElement;
+
+    // 1. Remove buttons, action icons, system elements, file inputs & upload sections
+    const selectorToRemove = [
+      'button',
+      'a.btn-action-lite',
+      'a.btn-itin-doc',
+      '.btn-action-lite-text',
+      '.btn-action-lite',
+      '.item-actions-premium',
+      '.section-actions',
+      '.btn-save-perfil',
+      '.btn-upload-doc',
+      '.btn-itin-doc',
+      'input[type="file"]',
+      '.file-input-wrapper',
+      '.doc-upload-zone',
+      '.docs-section',
+      'svg',
+      '.doc-card-actions',
+      'datalist',
+      '.section-header-flex button',
+    ].join(', ');
+
+    clone.querySelectorAll(selectorToRemove).forEach(el => el.remove());
+
+    // 2. Remove top section-header-flex or duplicate section-title at root of clone
+    const topHeader = clone.querySelector('.section-header-flex');
+    if (topHeader) {
+      topHeader.remove();
+    } else {
+      const topTitle = clone.querySelector('.section-title');
+      if (topTitle) topTitle.remove();
+    }
+
+    // 3. Convert form inputs/selects/textareas to plain text values
+    const origInputs = Array.from(content.querySelectorAll('input, select, textarea'));
+    const cloneInputs = Array.from(clone.querySelectorAll('input, select, textarea'));
+
+    origInputs.forEach((origEl, idx) => {
+      const cloneEl = cloneInputs[idx];
+      if (!cloneEl) return;
+
+      const tagName = origEl.tagName.toLowerCase();
+      let textValue = '';
+
+      if (tagName === 'input') {
+        const inp = origEl as HTMLInputElement;
+        if (inp.type === 'checkbox' || inp.type === 'radio') {
+          if (!inp.checked) {
+            const parentGroup = cloneEl.closest('label') || cloneEl.parentElement;
+            if (parentGroup && parentGroup !== clone) {
+              parentGroup.remove();
+            } else {
+              cloneEl.remove();
+            }
+            return;
+          }
+          textValue = inp.nextSibling?.textContent?.trim() || inp.name || 'Sim';
+        } else if (inp.type === 'date') {
+          textValue = formatDateLocal(inp.value) || '-';
+        } else {
+          textValue = inp.value.trim() || '-';
+        }
+      } else if (tagName === 'select') {
+        const sel = origEl as HTMLSelectElement;
+        const optText = sel.options[sel.selectedIndex]?.text || sel.value;
+        textValue = optText.includes('Selecione') ? '-' : optText.trim() || '-';
+      } else if (tagName === 'textarea') {
+        const txt = origEl as HTMLTextAreaElement;
+        textValue = txt.value.trim() || '-';
+      }
+
+      // Replace form input control with clean text span
+      const span = document.createElement('span');
+      span.className = 'print-data-value';
+      span.textContent = textValue;
+      cloneEl.parentNode?.replaceChild(span, cloneEl);
+    });
+
+    // 4. Open print window and generate elegant HTML report
+    const printWindow = window.open('', '_blank');
+    if (!printWindow) return;
+
+    const dataAtual = new Date().toLocaleDateString('pt-BR');
+    const horaAtual = new Date().toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
+
+    printWindow.document.write(`
+      <!DOCTYPE html>
+      <html lang="pt-BR">
+      <head>
+        <meta charset="UTF-8">
+        <title>${title} - ${missionario?.nome || ''}</title>
+        <style>
+          @import url('https://fonts.googleapis.com/css2?family=Cinzel:wght@600;700&family=Inter:wght@300;400;500;600;700&display=swap');
+          
+          * { margin: 0; padding: 0; box-sizing: border-box; }
+          
+          @page {
+            size: A4;
+            margin: 12mm 15mm 15mm 15mm;
+          }
+
+          body {
+            font-family: 'Inter', system-ui, -apple-system, sans-serif;
+            color: #0f172a;
+            background: #ffffff;
+            line-height: 1.5;
+            font-size: 12.5px;
+            padding: 20px;
+          }
+
+          .print-container {
+            max-width: 800px;
+            margin: 0 auto;
+          }
+
+          /* Header institucional elegante */
+          .print-header {
+            text-align: center;
+            padding-bottom: 18px;
+            margin-bottom: 24px;
+            border-bottom: 2px solid #013375;
+          }
+
+          .print-header .org-name {
+            font-family: 'Cinzel', serif;
+            font-size: 13px;
+            font-weight: 700;
+            letter-spacing: 1.5px;
+            color: #013375;
+            text-transform: uppercase;
+            margin-bottom: 4px;
+          }
+
+          .print-header .doc-title {
+            font-size: 20px;
+            font-weight: 700;
+            color: #0f172a;
+            margin-top: 6px;
+            margin-bottom: 12px;
+          }
+
+          .print-header-meta {
+            display: flex;
+            justify-content: center;
+            flex-wrap: wrap;
+            gap: 20px;
+            font-size: 12px;
+            color: #475569;
+            background: #f8fafc;
+            padding: 8px 16px;
+            border-radius: 6px;
+            border: 1px solid #e2e8f0;
+          }
+
+          .print-header-meta span strong {
+            color: #013375;
+          }
+
+          /* Form grids e grupos */
+          .form-grid-1, .form-grid-2, .form-grid-3, .form-grid-4 {
+            display: grid;
+            gap: 14px 18px;
+            margin-bottom: 20px;
+          }
+
+          .form-grid-1 { grid-template-columns: 1fr; }
+          .form-grid-2 { grid-template-columns: 1fr 1fr; }
+          .form-grid-3 { grid-template-columns: 1fr 1fr 1fr; }
+          .form-grid-4 { grid-template-columns: 1fr 1fr 1fr 1fr; }
+
+          .form-group {
+            display: flex;
+            flex-direction: column;
+            gap: 3px;
+          }
+
+          .form-group label {
+            font-size: 10.5px;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            color: #64748b;
+          }
+
+          .print-data-value {
+            font-size: 13px;
+            font-weight: 500;
+            color: #0f172a;
+            padding: 4px 0 6px 0;
+            border-bottom: 1px dashed #cbd5e1;
+            min-height: 22px;
+            display: block;
+          }
+
+          /* Listas e Cards Premium */
+          .list-item-card-premium, .contato-item-premium, .generic-list > div {
+            background: #ffffff !important;
+            border: 1px solid #e2e8f0 !important;
+            border-radius: 8px !important;
+            padding: 14px 18px !important;
+            margin-bottom: 14px !important;
+            page-break-inside: avoid;
+          }
+
+          .item-main-content strong {
+            font-size: 14px;
+            color: #013375;
+            display: block;
+            margin-bottom: 4px;
+          }
+
+          .item-subtitle {
+            font-size: 12px;
+            color: #475569;
+          }
+
+          .item-description {
+            font-size: 12px;
+            color: #334155;
+            margin-top: 6px;
+            line-height: 1.5;
+          }
+
+          /* Status Badges */
+          .situacao-tag-premium, .tag {
+            display: inline-block;
+            padding: 4px 12px;
+            border-radius: 20px;
+            font-size: 11px;
+            font-weight: 700;
+            text-transform: uppercase;
+            border: 1px solid #cbd5e1;
+          }
+
+          .situacao-tag-premium.ativo { background: #dcfce7; color: #166534; border-color: #bbf7d0; }
+          .situacao-tag-premium.egresso { background: #fef3c7; color: #92400e; border-color: #fde68a; }
+          .situacao-tag-premium.falecido { background: #f1f5f9; color: #475569; border-color: #cbd5e1; }
+
+          /* Ocultar elementos desnecessários */
+          button, .btn-action-lite, .btn-action-lite-text, .section-actions, .item-actions-premium, svg, .docs-section {
+            display: none !important;
+          }
+
+          /* Footer */
+          .print-footer {
+            margin-top: 40px;
+            padding-top: 12px;
+            border-top: 1.5px solid #013375;
+            display: flex;
+            justify-content: space-between;
+            font-size: 10.5px;
+            color: #64748b;
+          }
+
+          @media print {
+            body { padding: 0; }
+            .print-container { max-width: 100%; }
+          }
+        </style>
+      </head>
+      <body>
+        <div class="print-container">
+          <div class="print-header">
+            <div class="org-name">Sociedade dos Missionários de São Carlos — Scalabrianos</div>
+            <div class="doc-title">${title}</div>
+            <div class="print-header-meta">
+              <span>Missionário: <strong>${missionario?.nome || ''}</strong></span>
+              <span>ID: <strong>#${missionario?.id || ''}</strong></span>
+              <span>Emissão: <strong>${dataAtual} às ${horaAtual}</strong></span>
+            </div>
+          </div>
+
+          <div class="print-body">
+            ${clone.innerHTML}
+          </div>
+
+          <div class="print-footer">
+            <span>Portal Scalabrinianos — Sistema de Gestão</span>
+            <span>Documento impresso individualmente</span>
+          </div>
+        </div>
+      </body>
+      </html>
+    `);
+    printWindow.document.close();
+    setTimeout(() => {
+      printWindow.print();
+    }, 400);
+  };
 
   const API_URL = import.meta.env.VITE_API_URL || '/api';
   void API_URL;
@@ -590,22 +901,13 @@ const PerfilMissionario: React.FC = () => {
     finally { setIsSaving(false); }
   };
 
-  const saveProximosSteps = async () => {
-    if (!missionario) return;
-    setIsSaving(true);
-    try {
-      await api.put(`/usuarios/${id}`, { proximos_passos: missionario.proximos_passos });
-      alert('Próximos passos atualizados!');
-    } catch { alert('Erro ao salvar próximos passos'); }
-    finally { setIsSaving(false); }
-  };
 
-  /*
+
   const handleItinDocUpload = async (e: React.ChangeEvent<HTMLInputElement>, etapa: string) => {
     const file = e.target.files?.[0];
     if (!file) return;
 
-    setItinDocUploading(1); // placeholder
+    setIsSaving(true);
     const fd = new FormData();
     fd.append('arquivo', file);
     fd.append('descricao', `Doc Etapa: ${etapa}`);
@@ -616,7 +918,7 @@ const PerfilMissionario: React.FC = () => {
       });
       const newPath = res.data.url || res.data.arquivo_path;
       const existing = itinerarioStages.find(s => s.etapa === etapa);
-      let newStages = [];
+      let newStages: ItineraryStage[] = [];
       if (existing) {
         newStages = itinerarioStages.map(s => s.etapa === etapa ? { ...s, doc_path: newPath } : s);
       } else {
@@ -624,24 +926,53 @@ const PerfilMissionario: React.FC = () => {
       }
       setItinerarioStages(newStages);
       await api.post(`/usuarios/${id}/itinerario`, { stages: newStages });
+      if (itinFileInputRef.current) itinFileInputRef.current.value = '';
+      alert('Documento anexado com sucesso!');
     } catch {
       alert('Erro ao anexar documento');
     } finally {
-      setItinDocUploading(null);
+      setIsSaving(false);
     }
   };
-  */
-
 
   const handleGenericAdd = async (endpoint: string, data: Record<string, any>) => {
     setIsSaving(true);
     try {
       await api.post(`/usuarios/${id}/${endpoint}`, data);
       setShowAddForm(null);
+      setEditingFormacao(null);
+      setEditingAtividade(null);
       setTempForm({});
       fetchData();
     } catch { alert('Erro ao salvar registro'); }
     finally { setIsSaving(false); }
+  };
+
+  const handleGenericUpdate = async (endpoint: string, itemId: number, data: Record<string, any>) => {
+    setIsSaving(true);
+    try {
+      await api.put(`/usuarios/${id}/${endpoint}/${itemId}`, data);
+      setShowAddForm(null);
+      setEditingFormacao(null);
+      setEditingAtividade(null);
+      setTempForm({});
+      fetchData();
+    } catch {
+      // Fallback if PUT endpoint is not defined on backend, try DELETE + POST
+      try {
+        await api.delete(`/usuarios/${id}/${endpoint}/${itemId}`);
+        await api.post(`/usuarios/${id}/${endpoint}`, data);
+        setShowAddForm(null);
+        setEditingFormacao(null);
+        setEditingAtividade(null);
+        setTempForm({});
+        fetchData();
+      } catch {
+        alert('Erro ao atualizar registro');
+      }
+    } finally {
+      setIsSaving(false);
+    }
   };
 
   const uploadGenericDoc = async (e: React.ChangeEvent<HTMLInputElement>, endpoint: string) => {
@@ -674,8 +1005,9 @@ const PerfilMissionario: React.FC = () => {
   if (isLoading) return <div className="perfil-loading"><Loader2 className="animate-spin" size={40} /><p>{t('profile.loading')}</p></div>;
   if (!missionario) return <div className="perfil-loading"><AlertCircle size={40} /><p>{t('profile.not_found')}</p></div>;
 
-  // Tabs principais (só Dados Civis e Contatos)
+  // Tabs principais (Situação, Dados Civis e Contatos)
   const mainTabs = [
+    { key: 'situacao', label: '0. Situação', icon: <Star size={16} />, perm: 'dados_civis' },
     { key: 'dados', label: t('profile.tabs.personal'), icon: <User size={16} />, perm: 'dados_civis' },
     { key: 'contatos', label: t('profile.tabs.contact'), icon: <MapPin size={16} />, perm: 'contatos' },
   ];
@@ -684,11 +1016,16 @@ const PerfilMissionario: React.FC = () => {
   const sidebarItems = [
     { key: 'religiosos', label: t('profile.tabs.religious'), icon: <BookOpen size={16} />, perm: 'dados_religiosos' },
     { key: 'itinerario', label: t('profile.tabs.itinerary'), icon: <Activity size={16} />, perm: 'itinerario_formativo' },
-    { key: 'carreira', label: t('profile.tabs.career'), icon: <GraduationCap size={16} />, perm: 'formacao_academica' },
-    { key: 'saude', label: t('profile.tabs.health_finance'), icon: <ShieldCheck size={16} />, perm: 'saude' },
+    { key: 'formacao_academica', label: t('profile.tabs.formacao_academica'), icon: <GraduationCap size={16} />, perm: 'formacao_academica' },
+    { key: 'atividade_missionaria', label: t('profile.tabs.atividade_missionaria'), icon: <MapPin size={16} />, perm: 'atividade_missionaria' },
+    { key: 'saude_individual', label: t('profile.tabs.saude_individual'), icon: <Activity size={16} />, perm: 'saude' },
+    { key: 'previdenciario', label: t('profile.tabs.previdenciario'), icon: <ShieldCheck size={16} />, perm: 'previdenciario_ir' },
+    { key: 'contas_bancarias', label: t('profile.tabs.contas_bancarias'), icon: <DollarSign size={16} />, perm: 'conta_bancaria' },
+    { key: 'formacao_missao', label: t('profile.tabs.formacao_missao'), icon: <Star size={16} />, perm: 'obras_realizadas' },
+    { key: 'obs', label: t('profile.tabs.obs'), icon: <FileText size={16} />, perm: 'observacoes' },
+    { key: 'quadro_pessoal', label: t('profile.tabs.quadro_pessoal'), icon: <Users size={16} />, perm: 'quadro_pessoal' },
     { key: 'casas', label: t('profile.tabs.houses'), icon: <HomeIcon size={16} />, perm: null },
     { key: 'acesso', label: t('profile.tabs.access'), icon: <Lock size={16} />, perm: null },
-    { key: 'obs', label: t('profile.tabs.obs'), icon: <FileText size={16} />, perm: 'observacoes' },
     { key: 'permissoes', label: t('profile.tabs.permissions'), icon: <ShieldCheck size={16} />, perm: null },
   ];
 
@@ -703,6 +1040,59 @@ const PerfilMissionario: React.FC = () => {
     if (!tab.perm) return true;
     return !!missionario.permissoes?.[tab.perm];
   });
+
+  // Helper: renders itinerary stage items for a given sub-section
+  const renderItinSubItems = (subItems: Array<{ label: string; etapaKey: string }>) => (
+    <>
+      <div style={{ marginTop: '16px' }}>
+        {subItems.map(sub => {
+          const matchingStages = itinerarioStages.filter(s => s.etapa === sub.etapaKey || s.etapa.startsWith(sub.etapaKey + '-'));
+          const stagesToRender = matchingStages.length > 0 ? matchingStages : [{ etapa: sub.etapaKey, local: '', periodo: '', doc_path: '', is_sub_etapa: false }];
+          return (
+            <div key={sub.etapaKey} style={{ marginBottom: '20px', padding: '12px', background: '#fafafa', borderRadius: '8px', border: '1px solid #f1f5f9' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px' }}>
+                <strong style={{ fontSize: '0.9rem', color: '#1e293b' }}>{sub.label}</strong>
+                {canEdit && (
+                  <button type="button" className="btn-action-lite-text" style={{ fontSize: '0.8rem', padding: '2px 8px' }}
+                    onClick={() => { const ne = `${sub.etapaKey}-${Date.now()}`; setItinerarioStages([...itinerarioStages, { etapa: ne, local: '', periodo: '', doc_path: '', is_sub_etapa: true }]); }}>
+                    <Plus size={14} /> Novo Local/Período
+                  </button>
+                )}
+              </div>
+              {stagesToRender.map((stage, sIdx) => (
+                <div key={stage.etapa + '-' + sIdx} style={{ display: 'flex', gap: '10px', alignItems: 'center', marginBottom: '8px', flexWrap: 'wrap' }}>
+                  <input type="text" placeholder="Período (ex: 1990-1994)" value={stage.periodo}
+                    onChange={e => { const val = e.target.value; const updated = itinerarioStages.some(s => s.etapa === stage.etapa) ? itinerarioStages.map(s => s.etapa === stage.etapa ? { ...s, periodo: val } : s) : [...itinerarioStages, { ...stage, periodo: val }]; setItinerarioStages(updated); }}
+                    disabled={!canEdit} style={{ flex: '1', minWidth: '160px', padding: '8px', borderRadius: '6px', border: '1px solid #cbd5e1', fontSize: '0.85rem' }} />
+                  <input type="text" placeholder="Local / Instituição" value={stage.local}
+                    onChange={e => { const val = e.target.value; const updated = itinerarioStages.some(s => s.etapa === stage.etapa) ? itinerarioStages.map(s => s.etapa === stage.etapa ? { ...s, local: val } : s) : [...itinerarioStages, { ...stage, local: val }]; setItinerarioStages(updated); }}
+                    disabled={!canEdit} style={{ flex: '2', minWidth: '220px', padding: '8px', borderRadius: '6px', border: '1px solid #cbd5e1', fontSize: '0.85rem' }} />
+                  <div className="itin-doc-actions" style={{ display: 'flex', gap: '6px' }}>
+                    {stage.doc_path ? (
+                      <a href={getFileUrl(stage.doc_path) || '#'} target="_blank" rel="noreferrer" className="btn-itin-doc success"><FileText size={14} /> Ver Doc</a>
+                    ) : (
+                      <button type="button" className="btn-itin-doc" onClick={() => { activeEtapaRef.current = stage.etapa; itinFileInputRef.current?.click(); }} disabled={!canEdit}>
+                        <Plus size={14} /> Anexar
+                      </button>
+                    )}
+                    {canEdit && stage.etapa.includes('-') && (
+                      <button type="button" className="btn-action-lite delete" onClick={() => setItinerarioStages(itinerarioStages.filter(s => s.etapa !== stage.etapa))}><Trash2 size={14} /></button>
+                    )}
+                  </div>
+                </div>
+              ))}
+            </div>
+          );
+        })}
+      </div>
+      {canEdit && (
+        <button className="btn-save-perfil" onClick={saveItinerary} disabled={isSavingItinerary} style={{ marginTop: '12px' }}>
+          {isSavingItinerary ? <Loader2 size={16} className="animate-spin" /> : <Save size={16} />}
+          Salvar Itinerário
+        </button>
+      )}
+    </>
+  );
 
   return (
     <div className="page-container">
@@ -766,16 +1156,56 @@ const PerfilMissionario: React.FC = () => {
         <aside className="perfil-sidebar">
           <div className="sidebar-section-title">Mais Informações</div>
           <nav className="sidebar-nav">
-            {SIDEBAR.map(item => (
-              <button
-                key={item.key}
-                className={`sidebar-nav-item ${activeTab === item.key ? 'active' : ''}`}
-                onClick={() => setActiveTab(item.key)}
-              >
-                <span className="sidebar-nav-icon">{item.icon}</span>
-                <span className="sidebar-nav-label">{item.label}</span>
-              </button>
-            ))}
+            {SIDEBAR.map(item => {
+              if (item.key === 'itinerario') {
+                const itinSubItems = [
+                  { key: 'itin_4.1', label: '4.1 Formação Inicial' },
+                  { key: 'itin_4.2', label: '4.2 Vida Religiosa' },
+                  { key: 'itin_4.3', label: '4.3 Ministérios' },
+                  { key: 'itin_4.4', label: '4.4 Destinação' },
+                ];
+                const isItinActive = activeTab.startsWith('itin_');
+                return (
+                  <div key="itinerario-group">
+                    <button
+                      className={`sidebar-nav-item ${isItinActive ? 'active' : ''}`}
+                      style={{ display: 'flex', alignItems: 'center', width: '100%' }}
+                      onClick={() => {
+                        const willExpand = !itinSidebarExpanded;
+                        setItinSidebarExpanded(willExpand);
+                        if (willExpand && !isItinActive) setActiveTab('itin_4.1');
+                      }}
+                    >
+                      <span className="sidebar-nav-icon">{item.icon}</span>
+                      <span className="sidebar-nav-label" style={{ flex: 1 }}>{item.label}</span>
+                      <span style={{ marginLeft: '4px', display: 'flex', alignItems: 'center', opacity: 0.7 }}>
+                        {(itinSidebarExpanded || isItinActive) ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
+                      </span>
+                    </button>
+                    {(itinSidebarExpanded || isItinActive) && itinSubItems.map(sub => (
+                      <button
+                        key={sub.key}
+                        className={`sidebar-nav-item ${activeTab === sub.key ? 'active' : ''}`}
+                        style={{ paddingLeft: '32px', fontSize: '0.82rem', opacity: 0.92 }}
+                        onClick={() => setActiveTab(sub.key)}
+                      >
+                        <span className="sidebar-nav-label">{sub.label}</span>
+                      </button>
+                    ))}
+                  </div>
+                );
+              }
+              return (
+                <button
+                  key={item.key}
+                  className={`sidebar-nav-item ${activeTab === item.key ? 'active' : ''}`}
+                  onClick={() => setActiveTab(item.key)}
+                >
+                  <span className="sidebar-nav-icon">{item.icon}</span>
+                  <span className="sidebar-nav-label">{item.label}</span>
+                </button>
+              );
+            })}
           </nav>
         </aside>
 
@@ -790,11 +1220,98 @@ const PerfilMissionario: React.FC = () => {
           </div>
 
           <div className="perfil-content">
+            {/* --- 0. SITUAÇÃO --- */}
+            {activeTab === 'situacao' && (
+              <div className="tab-panel">
+                <div className="section-card" id="print-situacao">
+                  <div className="section-header-flex">
+                    <h3 className="section-title"><Star size={16} /> 0. Situação do Missionário</h3>
+                    <button className="btn-action-lite-text" onClick={() => printSection('0. Situação', 'print-situacao')}>
+                      <Printer size={15} /> Imprimir
+                    </button>
+                  </div>
+
+                  {/* Status badge display */}
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '16px', marginBottom: '28px', flexWrap: 'wrap' }}>
+                    <span className={`situacao-tag-premium ${(missionario.situacao || '').toLowerCase()}`} style={{ fontSize: '1rem', padding: '10px 24px' }}>
+                      {missionario.situacao || 'N/A'}
+                    </span>
+                    <span style={{ color: '#64748b', fontSize: '0.9rem' }}>Situação atual do missionário no sistema</span>
+                  </div>
+
+                  {canEdit && (
+                    <>
+                      {/* Selector de situação */}
+                      <div className="form-grid-2" style={{ marginBottom: '20px' }}>
+                        <div className="form-group">
+                          <label>Alterar Situação</label>
+                          <select
+                            value={missionario.situacao || ''}
+                            onChange={e => setMissionario({ ...missionario, situacao: e.target.value } as any)}
+                          >
+                            <option value="Ativo">Ativo</option>
+                            <option value="Egresso">Egresso</option>
+                            <option value="Falecido">Falecido</option>
+                            <option value="Exclaustrado">Exclaustrado</option>
+                            <option value="Ad Nutum">Ad Nutum</option>
+                          </select>
+                        </div>
+                      </div>
+
+                      {/* Falecido fields */}
+                      {missionario.situacao === 'Falecido' && (
+                        <div className="form-grid-2">
+                          <div className="form-group">
+                            <label>Data de Falecimento</label>
+                            <input type="date" value={situacaoData.data_falecimento} onChange={e => setSituacaoData({ ...situacaoData, data_falecimento: e.target.value })} />
+                          </div>
+                          <div className="form-group">
+                            <label>Cidade de Falecimento</label>
+                            <input type="text" value={situacaoData.cidade_falecimento} onChange={e => setSituacaoData({ ...situacaoData, cidade_falecimento: e.target.value })} />
+                          </div>
+                          <div className="form-group">
+                            <label>Local de Sepultamento</label>
+                            <input type="text" value={situacaoData.local_sepultamento} onChange={e => setSituacaoData({ ...situacaoData, local_sepultamento: e.target.value })} />
+                          </div>
+                        </div>
+                      )}
+
+                      {/* Exclaustrado fields */}
+                      {missionario.situacao === 'Exclaustrado' && (
+                        <div className="form-grid-2">
+                          <div className="form-group">
+                            <label>Data Exclaustração</label>
+                            <input type="date" value={situacaoData.exclaustrado_data} onChange={e => setSituacaoData({ ...situacaoData, exclaustrado_data: e.target.value })} />
+                          </div>
+                          <div className="form-group">
+                            <label>Processo / Decreto</label>
+                            <input type="text" value={situacaoData.exclaustrado_processo} onChange={e => setSituacaoData({ ...situacaoData, exclaustrado_processo: e.target.value })} />
+                          </div>
+                        </div>
+                      )}
+
+                      <div className="section-actions" style={{ marginTop: '20px' }}>
+                        <button className="btn-save-perfil" onClick={saveReligiosos} disabled={isSaving}>
+                          {isSaving ? <Loader2 size={16} className="animate-spin" /> : <Save size={16} />}
+                          Salvar Situação
+                        </button>
+                      </div>
+                    </>
+                  )}
+                </div>
+              </div>
+            )}
+
             {/* --- 1. DADOS CIVIS --- */}
             {activeTab === 'dados' && (
               <div className="tab-panel">
-                <div className="section-card">
-                  <h3 className="section-title"><User size={16} /> {t('profile.sections.civil')}</h3>
+                <div className="section-card" id="print-dados-civis">
+                  <div className="section-header-flex">
+                    <h3 className="section-title"><User size={16} /> {t('profile.sections.civil')}</h3>
+                    <button className="btn-action-lite-text" onClick={() => printSection('1. Dados Civis', 'print-dados-civis')}>
+                      <Printer size={15} /> Imprimir
+                    </button>
+                  </div>
                   <div className="form-grid-3">
 
                     {/* Data de Nascimento */}
@@ -833,7 +1350,7 @@ const PerfilMissionario: React.FC = () => {
                       />
                     </div>
 
-                    {/* Naturalidade — Cidade/Estado nascimento */}
+                    {/* Nascimento — Cidade/Estado nascimento */}
                     <div className="form-group">
                       <label>{t('missionaries.wizard.civil.birth_place_city')}</label>
                       <input
@@ -1088,14 +1605,19 @@ const PerfilMissionario: React.FC = () => {
             {/* --- 2. CONTATOS --- */}
             {activeTab === 'contatos' && (
               <div className="tab-panel">
-                <div className="section-card">
+                <div className="section-card" id="print-contatos">
                   <div className="section-header-flex">
                     <h3 className="section-title"><MapPin size={16} /> 2. Contatos</h3>
-                    {canEdit && contatos.length < 3 && (
-                      <button className="btn-action-lite-text" onClick={() => setContatos([...contatos, { parentesco: '', nome: '', endereco: '', telefone: '', email: '' }])}>
-                        <Plus size={16} /> Adicionar Contato
+                    <div style={{ display: 'flex', gap: '10px' }}>
+                      <button className="btn-action-lite-text" onClick={() => printSection('2. Contatos', 'print-contatos')}>
+                        <Printer size={15} /> Imprimir
                       </button>
-                    )}
+                      {canEdit && contatos.length < 3 && (
+                        <button className="btn-action-lite-text" onClick={() => setContatos([...contatos, { parentesco: '', nome: '', endereco: '', telefone: '', email: '' }])}>
+                          <Plus size={16} /> Adicionar Contato
+                        </button>
+                      )}
+                    </div>
                   </div>
 
                   <div className="contatos-list" style={{ marginTop: '20px' }}>
@@ -1299,11 +1821,15 @@ const PerfilMissionario: React.FC = () => {
             {/* --- RELIGIOSOS & ITINERÁRIO --- */}
             {activeTab === 'religiosos' && (
               <div className="tab-panel">
-                <div className="section-card">
-                  <h3 className="section-title"><BookOpen size={16} /> {t('profile.sections.religious')}</h3>
+                <div className="section-card" id="print-dados-religiosos">
+                  <div className="section-header-flex">
+                    <h3 className="section-title"><BookOpen size={16} /> {t('profile.sections.religious')}</h3>
+                    <button className="btn-action-lite-text" onClick={() => printSection('3. Dados Religiosos', 'print-dados-religiosos')}>
+                      <Printer size={15} /> Imprimir
+                    </button>
+                  </div>
                   <div className="form-grid-3">
                     <div className="form-group"><label>Batismo</label><input type="date" value={religiososData.data_batismo} onChange={e => setReligiososData({ ...religiososData, data_batismo: e.target.value })} disabled={!canEdit} /></div>
-                    <div className="form-group"><label>1ª Comunhão</label><input type="date" value={religiososData.data_primeira_comunhao} onChange={e => setReligiososData({ ...religiososData, data_primeira_comunhao: e.target.value })} disabled={!canEdit} /></div>
                     <div className="form-group"><label>Crisma</label><input type="date" value={religiososData.data_crisma} onChange={e => setReligiososData({ ...religiososData, data_crisma: e.target.value })} disabled={!canEdit} /></div>
                   </div>
 
@@ -1345,163 +1871,344 @@ const PerfilMissionario: React.FC = () => {
               </div>
             )}
 
-            {/* --- 4. ITINERÁRIO FORMATIVO --- */}
-            {activeTab === 'itinerario' && (
+            {/* Hidden File Input for Itinerary Documents */}
+            <input type="file" ref={itinFileInputRef} onChange={e => { if (activeEtapaRef.current) handleItinDocUpload(e, activeEtapaRef.current); }} style={{ display: 'none' }} accept=".pdf,.jpg,.jpeg,.png" />
+
+            {/* --- 4.1 FORMAÇÃO INICIAL --- */}
+            {activeTab === 'itin_4.1' && (
               <div className="tab-panel">
-                <div className="section-card">
-                  <h3 className="section-title"><Activity size={16} /> 4. Itinerário Formativo</h3>
-                  <div className="itinerary-full-grid">
-                    <div className="wizard-divider-lite" style={{ gridColumn: '1 / -1' }}>4.1 Formação Inicial</div>
-                    {[
-                      { label: '4.1.1 Seminário Menor', etapa: '4.1.1' },
-                      { label: '4.1.2 Propedêutico', etapa: '4.1.2' },
-                      { label: '4.1.3 Filosofia', etapa: '4.1.3' },
-                      { label: '4.1.4 Postulado', etapa: '4.1.4' },
-                      { label: '4.1.5 Noviciado', etapa: '4.1.5' },
-                      { label: '4.1.6 Teologia', etapa: '4.1.6' },
-                      { label: '4.1.7 Tirocínio', etapa: '4.1.7' },
-                    ].map((seg) => {
-                      const stage = itinerarioStages.find(s => s.etapa === seg.etapa) || { etapa: seg.etapa, local: '', periodo: '', doc_path: '', is_sub_etapa: false };
-                      return (
-                        <div key={seg.etapa} className="itinerary-row-card">
-                          <div className="itin-label">{seg.label}</div>
-                          <div className="itin-inputs">
-                            <input type="text" placeholder="Local" value={stage.local} onChange={e => {
-                              const ns = [...itinerarioStages.filter(s => s.etapa !== seg.etapa), { ...stage, local: e.target.value }];
-                              setItinerarioStages(ns);
-                            }} disabled={!canEdit} />
-                            <input type="text" placeholder="Período" value={stage.periodo} onChange={e => {
-                              const ns = [...itinerarioStages.filter(s => s.etapa !== seg.etapa), { ...stage, periodo: e.target.value }];
-                              setItinerarioStages(ns);
-                            }} disabled={!canEdit} />
-                            <div className="itin-doc-actions">
-                              {stage.doc_path ? (
-                                <a href={getFileUrl(stage.doc_path) || '#'} target="_blank" rel="noreferrer" className="btn-itin-doc success"><FileText size={14} /> Ver</a>
-                              ) : (
-                                <button className="btn-itin-doc" onClick={() => { activeEtapaRef.current = seg.etapa; itinFileInputRef.current?.click(); }} disabled={!canEdit}>
-                                  <Plus size={14} /> Anexar
-                                </button>
-                              )}
-                            </div>
-                          </div>
-                        </div>
-                      );
-                    })}
-
-                    <div className="wizard-divider-lite" style={{ gridColumn: '1 / -1', marginTop: '20px' }}>4.2 Vida Religiosa & 4.3 Ministérios</div>
-                    {[
-                      { label: '4.2.1 Primeira Profissão', etapa: '4.2.1' },
-                      { label: '4.2.2 Renovação Votos', etapa: '4.2.2' },
-                      { label: '4.2.3 Profissão Perpétua', etapa: '4.2.3' },
-                      { label: '4.3.1 Leitorado', etapa: '4.3.1' },
-                      { label: '4.3.2 Acolitado', etapa: '4.3.2' },
-                      { label: '4.3.3 Diaconato', etapa: '4.3.3' },
-                      { label: '4.3.4 Presbiterato', etapa: '4.3.4' },
-                      { label: '4.4 Destinação', etapa: '4.4' },
-                    ].map((seg) => {
-                      const stage = itinerarioStages.find(s => s.etapa === seg.etapa) || { etapa: seg.etapa, local: '', periodo: '', doc_path: '', is_sub_etapa: false };
-                      return (
-                        <div key={seg.etapa} className="itinerary-row-card simple">
-                          <div className="itin-label">{seg.label}</div>
-                          <div className="itin-inputs">
-                            <input type="text" placeholder="Observação/Lugar" value={stage.local} onChange={e => {
-                              const ns = [...itinerarioStages.filter(s => s.etapa !== seg.etapa), { ...stage, local: e.target.value }];
-                              setItinerarioStages(ns);
-                            }} disabled={!canEdit} />
-                            <div className="itin-doc-actions">
-                              {stage.doc_path ? (
-                                <a href={getFileUrl(stage.doc_path) || '#'} target="_blank" rel="noreferrer" className="btn-itin-doc success"><FileText size={14} /> Ver</a>
-                              ) : (
-                                <button className="btn-itin-doc" onClick={() => { activeEtapaRef.current = seg.etapa; itinFileInputRef.current?.click(); }} disabled={!canEdit}>
-                                  <Plus size={14} /> Doc
-                                </button>
-                              )}
-                            </div>
-                          </div>
-                        </div>
-                      );
-                    })}
-                  </div>
-                  {canEdit && (
-                    <button className="btn-save-perfil" onClick={saveItinerary} disabled={isSavingItinerary} style={{ marginTop: '20px' }}>
-                      {isSavingItinerary ? <Loader2 size={16} className="animate-spin" /> : <Save size={16} />}
-                      Salvar Itinerário
+                <div className="section-card" id="print-itinerario-41">
+                  <div className="section-header-flex">
+                    <h3 className="section-title"><Activity size={16} /> 4.1 Formação Inicial</h3>
+                    <button className="btn-action-lite-text" onClick={() => printSection('4.1 Formação Inicial', 'print-itinerario-41')}>
+                      <Printer size={15} /> Imprimir
                     </button>
-                  )}
-                </div>
-
-                <div className="section-card">
-                  <h3 className="section-title"><Activity size={16} /> Próximos Passos</h3>
-                  <textarea
-                    className="steps-textarea"
-                    placeholder="Descreva os próximos passos para este missionário..."
-                    value={missionario.proximos_passos || ''}
-                    onChange={e => setMissionario({ ...missionario, proximos_passos: e.target.value })}
-                    disabled={!canEdit}
-                    rows={5}
-                  />
-                  {canEdit && <button className="btn-save-perfil" onClick={saveProximosSteps} style={{ marginTop: '10px' }}>{t('common.save')}</button>}
+                  </div>
+                  {renderItinSubItems([
+                    { label: '4.1.1 Seminário Menor', etapaKey: '4.1.1' },
+                    { label: '4.1.2 Propedêutico', etapaKey: '4.1.2' },
+                    { label: '4.1.3 Filosofia', etapaKey: '4.1.3' },
+                    { label: '4.1.4 Postulado', etapaKey: '4.1.4' },
+                    { label: '4.1.5 Noviciado', etapaKey: '4.1.5' },
+                    { label: '4.1.6 Teologia', etapaKey: '4.1.6' },
+                    { label: '4.1.7 Tirocínio', etapaKey: '4.1.7' },
+                  ])}
                 </div>
               </div>
             )}
 
-            {/* --- CARREIRA & MISSÃO --- */}
-            {activeTab === 'carreira' && (
+            {/* --- 4.2 VIDA RELIGIOSA --- */}
+            {activeTab === 'itin_4.2' && (
               <div className="tab-panel">
-                <div className="section-card">
+                <div className="section-card" id="print-itinerario-42">
+                  <div className="section-header-flex">
+                    <h3 className="section-title"><Activity size={16} /> 4.2 Vida Religiosa</h3>
+                    <button className="btn-action-lite-text" onClick={() => printSection('4.2 Vida Religiosa', 'print-itinerario-42')}>
+                      <Printer size={15} /> Imprimir
+                    </button>
+                  </div>
+                  {renderItinSubItems([
+                    { label: '4.2.1 Primeira Profissão', etapaKey: '4.2.1' },
+                    { label: '4.2.2 Renovação Votos', etapaKey: '4.2.2' },
+                    { label: '4.2.3 Profissão Perpétua', etapaKey: '4.2.3' },
+                  ])}
+                </div>
+              </div>
+            )}
+
+            {/* --- 4.3 MINISTÉRIOS --- */}
+            {activeTab === 'itin_4.3' && (
+              <div className="tab-panel">
+                <div className="section-card" id="print-itinerario-43">
+                  <div className="section-header-flex">
+                    <h3 className="section-title"><Activity size={16} /> 4.3 Ministérios</h3>
+                    <button className="btn-action-lite-text" onClick={() => printSection('4.3 Ministérios', 'print-itinerario-43')}>
+                      <Printer size={15} /> Imprimir
+                    </button>
+                  </div>
+                  {renderItinSubItems([
+                    { label: '4.3.1 Leitorado', etapaKey: '4.3.1' },
+                    { label: '4.3.2 Acolitado', etapaKey: '4.3.2' },
+                    { label: '4.3.3 Diaconato', etapaKey: '4.3.3' },
+                    { label: '4.3.4 Presbiterato', etapaKey: '4.3.4' },
+                  ])}
+                </div>
+              </div>
+            )}
+
+            {/* --- 4.4 DESTINAÇÃO --- */}
+            {activeTab === 'itin_4.4' && (
+              <div className="tab-panel">
+                <div className="section-card" id="print-itinerario-44">
+                  <div className="section-header-flex">
+                    <h3 className="section-title"><Activity size={16} /> 4.4 Destinação</h3>
+                    <button className="btn-action-lite-text" onClick={() => printSection('4.4 Destinação', 'print-itinerario-44')}>
+                      <Printer size={15} /> Imprimir
+                    </button>
+                  </div>
+                  {renderItinSubItems([
+                    { label: '4.4 Destinação', etapaKey: '4.4' },
+                  ])}
+                </div>
+              </div>
+            )}
+
+
+
+            {/* --- 5. FORMAÇÃO ACADÊMICA --- */}
+            {activeTab === 'formacao_academica' && (
+              <div className="tab-panel">
+                <div className="section-card" id="print-formacao">
                   <div className="section-header-flex">
                     <h3 className="section-title"><GraduationCap size={16} /> 5. Formação Acadêmica</h3>
-                    {canEdit && <button className="btn-action-lite-text" onClick={() => setShowAddForm('formacao')}><Plus size={14} /> Adicionar</button>}
+                    <div style={{ display: 'flex', gap: '10px' }}>
+                      <button className="btn-action-lite-text" onClick={() => printSection('5. Formação Acadêmica', 'print-formacao')}>
+                        <Printer size={15} /> Imprimir
+                      </button>
+                      {canEdit && (
+                        <button className="btn-action-lite-text" onClick={() => { setEditingFormacao(null); setTempForm({}); setShowAddForm('formacao'); }}>
+                          <Plus size={14} /> Adicionar
+                        </button>
+                      )}
+                    </div>
                   </div>
+
                   <div className="generic-list">
-                    {formacaoAcademica.map(f => (
-                      <div key={f.id} className="list-item-card-premium">
-                        <div className="item-icon-container icon-formacao">
-                          <GraduationCap size={20} />
+                    {[...formacaoAcademica]
+                      .sort((a, b) => {
+                        const getYear = (str: string) => {
+                          const m = (str || '').match(/\d{4}/);
+                          return m ? parseInt(m[0]) : 0;
+                        };
+                        return getYear(b.periodo || '') - getYear(a.periodo || '');
+                      })
+                      .map(f => (
+                        <div key={f.id} className="list-item-card-premium">
+                          <div className="item-icon-container icon-formacao">
+                            <GraduationCap size={20} />
+                          </div>
+                          <div className="item-main-content">
+                            <strong>{f.curso}</strong>
+                            <div className="item-subtitle">{f.faculdade} • {f.periodo}</div>
+                            {f.observacoes && (
+                              <div className="item-description" style={{ marginTop: '6px', fontSize: '0.85rem', color: '#475569' }}>
+                                <strong>Obs:</strong> {f.observacoes}
+                              </div>
+                            )}
+                          </div>
+                          <div className="item-actions-premium" style={{ display: 'flex', gap: '8px' }}>
+                            {f.doc_path && (
+                              <a href={getFileUrl(f.doc_path) || '#'} target="_blank" rel="noreferrer" className="btn-action-lite" title="Ver Documento/Diploma">
+                                <Download size={14} />
+                              </a>
+                            )}
+                            {canEdit && (
+                              <>
+                                <button
+                                  className="btn-action-lite"
+                                  onClick={() => {
+                                    setEditingFormacao(f.id);
+                                    setTempForm({ ...f });
+                                    setShowAddForm('formacao');
+                                  }}
+                                  title="Editar"
+                                >
+                                  <Edit size={14} />
+                                </button>
+                                <button className="btn-action-lite delete" onClick={() => handleGenericDelete('formacao-academica', f.id)} title="Excluir">
+                                  <Trash2 size={14} />
+                                </button>
+                              </>
+                            )}
+                          </div>
                         </div>
-                        <div className="item-main-content">
-                          <strong>{f.curso}</strong>
-                          <div className="item-subtitle">{f.faculdade} • {f.periodo}</div>
-                        </div>
-                        <div className="item-actions-premium">
-                          {f.doc_path && <a href={getFileUrl(f.doc_path) || '#'} target="_blank" rel="noreferrer" className="btn-action-lite" title="Baixar Diploma"><Download size={14} /></a>}
-                          {canEdit && <button className="btn-action-lite delete" onClick={() => handleGenericDelete('formacao-academica', f.id)} title="Excluir"><Trash2 size={14} /></button>}
-                        </div>
-                      </div>
-                    ))}
+                      ))}
                     {formacaoAcademica.length === 0 && <p className="empty-msg">Nenhuma formação acadêmica registrada.</p>}
                   </div>
                 </div>
+              </div>
+            )}
 
-                <div className="section-card">
+            {/* --- 6. ATIVIDADE MISSIONÁRIA --- */}
+            {activeTab === 'atividade_missionaria' && (
+              <div className="tab-panel">
+                <div className="section-card" id="print-atividade">
                   <div className="section-header-flex">
                     <h3 className="section-title"><MapPin size={16} /> 6. Atividade Missionária</h3>
-                    {canEdit && <button className="btn-action-lite-text" onClick={() => setShowAddForm('atividade')}><Plus size={14} /> Adicionar</button>}
+                    <div style={{ display: 'flex', gap: '10px' }}>
+                      <button className="btn-action-lite-text" onClick={() => printSection('6. Atividade Missionária', 'print-atividade')}>
+                        <Printer size={15} /> Imprimir
+                      </button>
+                      {canEdit && (
+                        <button className="btn-action-lite-text" onClick={() => { setEditingAtividade(null); setTempForm({}); setShowAddForm('atividade'); }}>
+                          <Plus size={14} /> Adicionar
+                        </button>
+                      )}
+                    </div>
                   </div>
+
                   <div className="generic-list">
-                    {atividadesMissionarias.map(a => (
-                      <div key={a.id} className="list-item-card-premium">
-                        <div className="item-icon-container icon-missao">
-                          <MapPin size={20} />
+                    {[...atividadesMissionarias]
+                      .sort((a, b) => {
+                        const getYear = (str: string) => {
+                          const m = (str || '').match(/\d{4}/);
+                          return m ? parseInt(m[0]) : 0;
+                        };
+                        return getYear(b.periodo || '') - getYear(a.periodo || '');
+                      })
+                      .map(a => (
+                        <div key={a.id} className="list-item-card-premium">
+                          <div className="item-icon-container icon-missao">
+                            <MapPin size={20} />
+                          </div>
+                          <div className="item-main-content">
+                            <strong>{a.lugar}</strong>
+                            <div className="item-subtitle">{a.periodo}</div>
+                            {a.funcao_atividade && (
+                              <div style={{ marginTop: '6px', display: 'flex', gap: '6px', flexWrap: 'wrap' }}>
+                                {a.funcao_atividade.split(',').map((fun: string, fIdx: number) => (
+                                  <span key={fIdx} style={{ background: '#eef2ff', color: '#1e3a8a', padding: '3px 10px', borderRadius: '12px', fontSize: '11px', fontWeight: 600 }}>
+                                    {fun.trim()}
+                                  </span>
+                                ))}
+                              </div>
+                            )}
+                            {a.missao && <div className="item-description" style={{ marginTop: '6px' }}>{a.missao}</div>}
+                          </div>
+                          <div className="item-actions-premium" style={{ display: 'flex', gap: '8px' }}>
+                            {canEdit && (
+                              <>
+                                <button
+                                  className="btn-action-lite"
+                                  onClick={() => {
+                                    setEditingAtividade(a.id);
+                                    const funs = a.funcao_atividade ? a.funcao_atividade.split(',').map((s: string) => s.trim()) : [];
+                                    setTempForm({ ...a, funcoes: funs });
+                                    setShowAddForm('atividade');
+                                  }}
+                                  title="Editar"
+                                >
+                                  <Edit size={14} />
+                                </button>
+                                <button className="btn-action-lite delete" onClick={() => handleGenericDelete('atividade-missionaria', a.id)} title="Excluir">
+                                  <Trash2 size={14} />
+                                </button>
+                              </>
+                            )}
+                          </div>
                         </div>
-                        <div className="item-main-content">
-                          <strong>{a.lugar}</strong>
-                          <div className="item-subtitle">{a.periodo}</div>
-                          {a.missao && <div className="item-description">{a.missao}</div>}
-                        </div>
-                        <div className="item-actions-premium">
-                          {canEdit && <button className="btn-action-lite delete" onClick={() => handleGenericDelete('atividade-missionaria', a.id)} title="Excluir"><Trash2 size={14} /></button>}
-                        </div>
-                      </div>
-                    ))}
+                      ))}
                     {atividadesMissionarias.length === 0 && <p className="empty-msg">Nenhuma atividade missionária registrada.</p>}
                   </div>
                 </div>
+              </div>
+            )}
 
-                <div className="section-card">
+            {/* --- 7. SAÚDE --- */}
+            {activeTab === 'saude_individual' && (
+              <div className="tab-panel">
+                <div className="section-card" id="print-saude">
+                  <div className="section-header-flex">
+                    <h3 className="section-title"><Activity size={16} /> 7. Saúde</h3>
+                    <div style={{ display: 'flex', gap: '10px' }}>
+                      <button className="btn-action-lite-text" onClick={() => printSection('7. Saúde', 'print-saude')}>
+                        <Printer size={15} /> Imprimir
+                      </button>
+                      {canEdit && (
+                        <button className="btn-action-lite-text" onClick={() => setShowAddForm('saude')}>
+                          <Plus size={14} /> Adicionar Registro
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                  <div className="generic-list">
+                    {saudeRecords.map(s => (
+                      <div key={s.id} className="list-item-card-premium">
+                        <div className="item-icon-container icon-saude">
+                          <Activity size={20} />
+                        </div>
+                        <div className="item-main-content">
+                          <strong>{s.seguradora || 'Seguradora não informada'}</strong>
+                          <div className="item-subtitle">CNS: {s.sus_card || 'N/A'} • Carteira: {s.numero_carteira || 'N/A'}</div>
+                        </div>
+                        <div className="item-actions-premium">
+                          {canEdit && <button className="btn-action-lite delete" onClick={() => handleGenericDelete('saude', s.id)} title="Excluir"><Trash2 size={14} /></button>}
+                        </div>
+                      </div>
+                    ))}
+                    {saudeRecords.length === 0 && <p className="empty-msg">Nenhum registro de saúde cadastrado.</p>}
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* --- 8. PREVIDENCIÁRIO / IR --- */}
+            {activeTab === 'previdenciario' && (
+              <div className="tab-panel">
+                <div className="section-card" id="print-previdenciario">
+                  <div className="section-header-flex">
+                    <h3 className="section-title"><ShieldCheck size={16} /> 8. Previdenciário / IR</h3>
+                    <button className="btn-action-lite-text" onClick={() => printSection('8. Previdenciário / IR', 'print-previdenciario')}>
+                      <Printer size={15} /> Imprimir
+                    </button>
+                  </div>
+                  <div className="form-group" style={{ maxWidth: '400px', marginTop: '15px' }}>
+                    <label>NIT (Número de Identificação do Trabalhador)</label>
+                    <div style={{ display: 'flex', gap: '10px' }}>
+                      <input type="text" value={nit} onChange={e => setNit(e.target.value)} disabled={!canEdit} placeholder="Digite o NIT..." />
+                      {canEdit && <button className="btn-save-perfil" onClick={saveCivil} style={{ padding: '0 15px' }} title="Salvar NIT"><Save size={16} /></button>}
+                    </div>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* --- 9. CONTAS BANCÁRIAS --- */}
+            {activeTab === 'contas_bancarias' && (
+              <div className="tab-panel">
+                <div className="section-card" id="print-banco">
+                  <div className="section-header-flex">
+                    <h3 className="section-title"><DollarSign size={16} /> 9. Contas Bancárias</h3>
+                    <div style={{ display: 'flex', gap: '10px' }}>
+                      <button className="btn-action-lite-text" onClick={() => printSection('9. Contas Bancárias', 'print-banco')}>
+                        <Printer size={15} /> Imprimir
+                      </button>
+                      {canEdit && <button className="btn-action-lite-text" onClick={() => setShowAddForm('banco')}><Plus size={14} /> Adicionar</button>}
+                    </div>
+                  </div>
+                  <div className="generic-list">
+                    {contasBancarias.map(b => (
+                      <div key={b.id} className="list-item-card-premium">
+                        <div className="item-icon-container icon-banco">
+                          <DollarSign size={20} />
+                        </div>
+                        <div className="item-main-content">
+                          <strong>{b.tipo_conta} • {b.titularidade}</strong>
+                          <div className="item-subtitle">Ag: {b.agencia} • Conta: {b.numero}</div>
+                        </div>
+                        <div className="item-actions-premium">
+                          {canEdit && <button className="btn-action-lite delete" onClick={() => handleGenericDelete('contas-bancarias', b.id)} title="Excluir"><Trash2 size={14} /></button>}
+                        </div>
+                      </div>
+                    ))}
+                    {contasBancarias.length === 0 && <p className="empty-msg">Nenhuma conta bancária registrada.</p>}
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* --- 11. FORMAÇÃO & MISSÃO / OBRAS REALIZADAS --- */}
+            {activeTab === 'formacao_missao' && (
+              <div className="tab-panel">
+                <div className="section-card" id="print-obras">
                   <div className="section-header-flex">
                     <h3 className="section-title"><Star size={16} /> 11. Obras Realizadas</h3>
-                    {canEdit && <button className="btn-action-lite-text" onClick={() => setShowAddForm('obras')}><Plus size={14} /> Adicionar</button>}
+                    <div style={{ display: 'flex', gap: '10px' }}>
+                      <button className="btn-action-lite-text" onClick={() => printSection('11. Obras Realizadas', 'print-obras')}>
+                        <Printer size={15} /> Imprimir
+                      </button>
+                      {canEdit && <button className="btn-action-lite-text" onClick={() => setShowAddForm('obras')}><Plus size={14} /> Adicionar</button>}
+                    </div>
                   </div>
                   <div className="generic-list">
                     {obrasRealizadas.map(o => (
@@ -1522,23 +2229,63 @@ const PerfilMissionario: React.FC = () => {
                     {obrasRealizadas.length === 0 && <p className="empty-msg">Nenhuma obra registrada.</p>}
                   </div>
                 </div>
+              </div>
+            )}
 
-                {/* --- 13. QUADRO DE PESSOAL CV --- */}
-                <div className="section-card">
+            {/* --- 12. OBSERVAÇÕES GERAIS --- */}
+            {activeTab === 'obs' && (
+              <div className="tab-panel">
+                <div className="section-card" id="print-obs">
+                  <div className="section-header-flex">
+                    <h3 className="section-title"><FileText size={16} /> 12. Observações Gerais</h3>
+                    <div style={{ display: 'flex', gap: '10px' }}>
+                      <button className="btn-action-lite-text" onClick={() => printSection('12. Observações Gerais', 'print-obs')}>
+                        <Printer size={15} /> Imprimir
+                      </button>
+                      {canEdit && <button className="btn-save-perfil" onClick={() => setShowAddForm('obs')}><Plus size={16} /> Nova Obs</button>}
+                    </div>
+                  </div>
+                  <div className="obs-list" style={{ marginTop: '20px' }}>
+                    {observacoesGerais.map(o => (
+                      <div key={o.id} className="obs-entry-card">
+                        <div className="obs-date">{new Date(o.created_at).toLocaleString()}</div>
+                        <div className="obs-text">{o.texto}</div>
+                        {canEdit && (
+                          <div className="obs-actions">
+                            <button className="btn-action-lite delete" onClick={() => handleGenericDelete('observacoes-gerais', o.id)}><Trash2 size={14} /></button>
+                          </div>
+                        )}
+                      </div>
+                    ))}
+                    {observacoesGerais.length === 0 && <p className="empty-msg">Nenhuma observação registrada.</p>}
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* --- 13. QUADRO DE PESSOAL CV --- */}
+            {activeTab === 'quadro_pessoal' && (
+              <div className="tab-panel">
+                <div className="section-card" id="print-quadro">
                   <div className="section-header-flex">
                     <h3 className="section-title"><ShieldCheck size={16} /> 13. Quadro de Pessoal CV</h3>
-                    {canEdit && (
-                      <button className="btn-action-lite-text" onClick={() => {
-                        setTempForm({
-                          funcao_atual: quadroPessoal?.funcao_atual || '',
-                          competencias: quadroPessoal?.competencias || '',
-                          cv_path: quadroPessoal?.cv_path || ''
-                        });
-                        setShowAddForm('quadro');
-                      }}>
-                        <Plus size={14} /> {quadroPessoal ? 'Editar' : 'Adicionar'}
+                    <div style={{ display: 'flex', gap: '10px' }}>
+                      <button className="btn-action-lite-text" onClick={() => printSection('13. Quadro de Pessoal CV', 'print-quadro')}>
+                        <Printer size={15} /> Imprimir
                       </button>
-                    )}
+                      {canEdit && (
+                        <button className="btn-action-lite-text" onClick={() => {
+                          setTempForm({
+                            funcao_atual: quadroPessoal?.funcao_atual || '',
+                            competencias: quadroPessoal?.competencias || '',
+                            cv_path: quadroPessoal?.cv_path || ''
+                          });
+                          setShowAddForm('quadro');
+                        }}>
+                          <Plus size={14} /> {quadroPessoal ? 'Editar' : 'Adicionar'}
+                        </button>
+                      )}
+                    </div>
                   </div>
                   {quadroPessoal ? (
                     <div className="list-item-card-premium">
@@ -1567,71 +2314,7 @@ const PerfilMissionario: React.FC = () => {
               </div>
             )}
 
-            {/* --- SAÚDE & FINANCEIRO --- */}
-            {activeTab === 'saude' && (
-              <div className="tab-panel">
-                <div className="section-card">
-                  <div className="section-header-flex">
-                    <h3 className="section-title"><Activity size={16} /> 7. Saúde</h3>
-                    {canEdit && <button className="btn-action-lite-text" onClick={() => setShowAddForm('saude')}><Plus size={14} /> Adicionar Registro</button>}
-                  </div>
-                  <div className="generic-list">
-                    {saudeRecords.map(s => (
-                      <div key={s.id} className="list-item-card-premium">
-                        <div className="item-icon-container icon-saude">
-                          <Activity size={20} />
-                        </div>
-                        <div className="item-main-content">
-                          <strong>{s.seguradora || 'Seguradora não informada'}</strong>
-                          <div className="item-subtitle">CNS: {s.sus_card || 'N/A'} • Carteira: {s.numero_carteira || 'N/A'}</div>
-                        </div>
-                        <div className="item-actions-premium">
-                          {canEdit && <button className="btn-action-lite delete" onClick={() => handleGenericDelete('saude', s.id)} title="Excluir"><Trash2 size={14} /></button>}
-                        </div>
-                      </div>
-                    ))}
-                    {saudeRecords.length === 0 && <p className="empty-msg">Nenhum registro de saúde cadastrado.</p>}
-                  </div>
-                </div>
-
-                <div className="section-card">
-                  <h3 className="section-title"><ShieldCheck size={16} /> 8. Previdenciário / IR</h3>
-                  <div className="form-group" style={{ maxWidth: '400px' }}>
-                    <label>NIT (Número de Identificação do Trabalhador)</label>
-                    <div style={{ display: 'flex', gap: '10px' }}>
-                      <input type="text" value={nit} onChange={e => setNit(e.target.value)} disabled={!canEdit} placeholder="Digite o NIT..." />
-                      {canEdit && <button className="btn-save-perfil" onClick={saveCivil} style={{ padding: '0 15px' }} title="Salvar NIT"><Save size={16} /></button>}
-                    </div>
-                  </div>
-                </div>
-
-                <div className="section-card">
-                  <div className="section-header-flex">
-                    <h3 className="section-title"><DollarSign size={16} /> 9. Contas Bancárias</h3>
-                    {canEdit && <button className="btn-action-lite-text" onClick={() => setShowAddForm('banco')}><Plus size={14} /> Adicionar</button>}
-                  </div>
-                  <div className="generic-list">
-                    {contasBancarias.map(b => (
-                      <div key={b.id} className="list-item-card-premium">
-                        <div className="item-icon-container icon-banco">
-                          <DollarSign size={20} />
-                        </div>
-                        <div className="item-main-content">
-                          <strong>{b.tipo_conta} • {b.titularidade}</strong>
-                          <div className="item-subtitle">Ag: {b.agencia} • Conta: {b.numero}</div>
-                        </div>
-                        <div className="item-actions-premium">
-                          {canEdit && <button className="btn-action-lite delete" onClick={() => handleGenericDelete('contas-bancarias', b.id)} title="Excluir"><Trash2 size={14} /></button>}
-                        </div>
-                      </div>
-                    ))}
-                    {contasBancarias.length === 0 && <p className="empty-msg">Nenhuma conta bancária registrada.</p>}
-                  </div>
-                </div>
-              </div>
-            )}
-
-            {/* --- CASAS --- */}
+            {/* --- CASAS (PRESENÇA MISSIONÁRIA) --- */}
             {activeTab === 'casas' && (
               <div className="tab-panel">
                 {canEdit && (
@@ -1670,42 +2353,21 @@ const PerfilMissionario: React.FC = () => {
                       </div>
                       <div className="form-group"><label>{t('missionaries.wizard.houses.start_date')}</label><input type="date" value={novaVinculacao.data_inicio} onChange={e => setNovaVinculacao(p => ({ ...p, data_inicio: e.target.value }))} /></div>
                       <div className="form-group"><label>Data de Saída (opcional)</label><input type="date" value={novaVinculacao.data_fim} onChange={e => setNovaVinculacao(p => ({ ...p, data_fim: e.target.value }))} /></div>
-                      <div className="form-group" style={{ gridColumn: '1 / -1', display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px' }}>
-                        {[
-                          { key: 'Superior Local', label: 'Superior Local', isSuperior: true },
-                          { key: 'Pároco', label: 'Pároco' },
-                          { key: 'Diretor', label: 'Diretor (rádios, escolas, fundações, escritórios)' },
-                          { key: 'Ecônomo Local', label: 'Ecônomo Local' },
-                          { key: 'Vigário', label: 'Vigário' },
-                          { key: 'Reitor', label: 'Reitor (seminários)' },
-                        ].map(r => (
-                            <label key={r.key} className="checkbox-label" style={{ marginTop: '6px', display: 'flex', alignItems: 'center', gap: '8px' }}>
-                              <input
-                                type="checkbox"
-                                checked={Array.isArray(novaVinculacao.funcao) && novaVinculacao.funcao.includes(r.key)}
-                                onChange={e => setNovaVinculacao(p => {
-                                  const current = Array.isArray(p.funcao) ? [...p.funcao] : [];
-                                  if (e.target.checked) {
-                                    if (!current.includes(r.key)) current.push(r.key);
-                                  } else {
-                                    const idx = current.indexOf(r.key);
-                                    if (idx >= 0) current.splice(idx, 1);
-                                  }
-                                  return { ...p, funcao: current, is_superior: current.includes('Superior Local') };
-                                })}
-                              />
-                              {r.label}
-                            </label>
-                        ))}
-                      </div>
+                    </div>
+                    <button className="btn-save-perfil" onClick={addCasa} style={{ marginTop: '15px' }}><Plus size={16} /> {t('profile.actions.bind_btn')}</button>
                   </div>
-                  <button className="btn-save-perfil" onClick={addCasa}><Plus size={16} /> {t('profile.actions.bind_btn')}</button>
-                </div>
                 )}
-                <div className="section-card">
-                  <h3 className="section-title"><HomeIcon size={16} /> Histórico de Presença</h3>
+
+                <div className="section-card" id="print-casas">
+                  <div className="section-header-flex">
+                    <h3 className="section-title"><HomeIcon size={16} /> Histórico de Presença</h3>
+                    <button className="btn-action-lite-text" onClick={() => printSection('Histórico de Presença Missionária', 'print-casas')}>
+                      <Printer size={15} /> Imprimir
+                    </button>
+                  </div>
                   <div className="casas-list">
-                    {casasHistorico.filter(c => Array.isArray(c.funcao) && ['Superior Local','Pároco','Diretor','Ecônomo Local','Vigário','Reitor'].some(r => c.funcao.includes(r))).map(c => (
+                    {/* EXIBIR TODAS AS CASAS DO HISTÓRICO SEM O FILTRO RESTRITIVO DE FUNÇÃO */}
+                    {casasHistorico.map(c => (
                       <div key={c.id} className={`casa-item ${!c.data_fim ? 'casa-ativa' : ''}`}>
                         <div className="casa-info">
                           <span className="casa-nome">{c.casa_nome}</span>
@@ -1727,36 +2389,12 @@ const PerfilMissionario: React.FC = () => {
                         {canEdit && <button className="btn-action-lite delete" onClick={() => removeCasa(c.id)}><Trash2 size={16} /></button>}
                       </div>
                     ))}
-                    {casasHistorico.filter(c => Array.isArray(c.funcao) && ['Superior Local','Pároco','Diretor','Ecônomo Local','Vigário','Reitor'].some(r => c.funcao.includes(r))).length === 0 && <p className="empty-msg">Nenhuma casa vinculada.</p>}
+                    {casasHistorico.length === 0 && <p className="empty-msg">Nenhuma casa vinculada.</p>}
                   </div>
                 </div>
               </div>
             )}
 
-            {/* --- OBSERVATIONS --- */}
-            {activeTab === 'obs' && (
-              <div className="tab-panel">
-                <div className="section-card">
-                  <div className="section-header-flex">
-                    <h3 className="section-title"><FileText size={16} /> 12. Observações Gerais</h3>
-                    {canEdit && <button className="btn-save-perfil" onClick={() => setShowAddForm('obs')}><Plus size={16} /> Nova Obs</button>}
-                  </div>
-                  <div className="obs-list" style={{ marginTop: '20px' }}>
-                    {observacoesGerais.map(o => (
-                      <div key={o.id} className="obs-entry-card">
-                        <div className="obs-date">{new Date(o.created_at).toLocaleString()}</div>
-                        <div className="obs-text">{o.texto}</div>
-                        {canEdit && (
-                          <div className="obs-actions">
-                            <button className="btn-action-lite delete" onClick={() => handleGenericDelete('observacoes-gerais', o.id)}><Trash2 size={14} /></button>
-                          </div>
-                        )}
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              </div>
-            )}
 
             {/* --- PERMISSÕES --- */}
             {activeTab === 'permissoes' && (
@@ -1812,43 +2450,168 @@ const PerfilMissionario: React.FC = () => {
             {/* --- MODAL --- */}
             {showAddForm && (
               <div className="modal-overlay">
-                <div className="modal-content">
-                  <h3>Adicionar {showAddForm === 'formacao' ? 'Formação' : showAddForm === 'atividade' ? 'Atividade' : showAddForm === 'obras' ? 'Obra' : showAddForm === 'saude' ? 'Registro de Saúde' : showAddForm === 'banco' ? 'Conta Bancária' : 'Observação'}</h3>
-                  <div className="form-grid-1" style={{ gap: '15px' }}>
+                <div className="modal-content" style={{ maxWidth: '600px', width: '90%' }}>
+                  <h3>
+                    {editingFormacao || editingAtividade ? 'Editar ' : 'Adicionar '}
+                    {showAddForm === 'formacao' ? 'Formação Acadêmica' : showAddForm === 'atividade' ? 'Atividade Missionária' : showAddForm === 'obras' ? 'Obra Realizada' : showAddForm === 'saude' ? 'Registro de Saúde' : showAddForm === 'banco' ? 'Conta Bancária' : showAddForm === 'quadro' ? 'Quadro de Pessoal' : 'Observação'}
+                  </h3>
+
+                  <div className="form-grid-1" style={{ gap: '15px', marginTop: '15px' }}>
                     {showAddForm === 'formacao' && (
                       <>
-                        <div className="form-group"><label>Curso</label><input type="text" onChange={e => setTempForm({ ...tempForm, curso: e.target.value })} /></div>
-                        <div className="form-group"><label>Instituição</label><input type="text" onChange={e => setTempForm({ ...tempForm, faculdade: e.target.value })} /></div>
-                        <div className="form-group"><label>Período</label><input type="text" placeholder="Ex: 2018-2022" onChange={e => setTempForm({ ...tempForm, periodo: e.target.value })} /></div>
+                        <div className="form-group">
+                          <label>Curso *</label>
+                          <input
+                            type="text"
+                            placeholder="Ex: Teologia, Filosofia, História..."
+                            value={tempForm.curso || ''}
+                            onChange={e => setTempForm({ ...tempForm, curso: e.target.value })}
+                          />
+                        </div>
+                        <div className="form-group">
+                          <label>Instituição / Faculdade</label>
+                          <input
+                            type="text"
+                            placeholder="Ex: PUC, USP..."
+                            value={tempForm.faculdade || ''}
+                            onChange={e => setTempForm({ ...tempForm, faculdade: e.target.value })}
+                          />
+                        </div>
+                        <div className="form-group">
+                          <label>Data / Período de Formação</label>
+                          <input
+                            type="text"
+                            placeholder="Ex: 2018-2022 ou 2022"
+                            value={tempForm.periodo || ''}
+                            onChange={e => setTempForm({ ...tempForm, periodo: e.target.value })}
+                          />
+                        </div>
+                        <div className="form-group">
+                          <label>Observações</label>
+                          <textarea
+                            rows={3}
+                            placeholder="Observações adicionais..."
+                            value={tempForm.observacoes || ''}
+                            onChange={e => setTempForm({ ...tempForm, observacoes: e.target.value })}
+                          />
+                        </div>
+                        <div className="form-group">
+                          <label>Anexar Documento (Certificado, Diploma, Declaração)</label>
+                          <div className="file-input-wrapper" style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
+                            <input
+                              type="file"
+                              onChange={e => uploadGenericDoc(e, 'formacao-academica')}
+                              accept=".pdf,.jpg,.jpeg,.png"
+                            />
+                          </div>
+                          {tempForm.doc_path && <span style={{ fontSize: '0.8rem', color: '#16a34a', marginTop: '4px' }}>Documento anexo mantido</span>}
+                        </div>
                       </>
                     )}
+
                     {showAddForm === 'atividade' && (
                       <>
-                        <div className="form-group"><label>Lugar</label><input type="text" onChange={e => setTempForm({ ...tempForm, lugar: e.target.value })} /></div>
-                        <div className="form-group"><label>Período</label><input type="text" onChange={e => setTempForm({ ...tempForm, periodo: e.target.value })} /></div>
-                        <div className="form-group"><label>Descrição da Missão</label><textarea rows={3} onChange={e => setTempForm({ ...tempForm, missao: e.target.value })} /></div>
+                        <div className="form-group">
+                          <label>Lugar / Local da Missão *</label>
+                          <input
+                            type="text"
+                            placeholder="Ex: Paróquia São José - São Paulo, SP"
+                            value={tempForm.lugar || ''}
+                            onChange={e => setTempForm({ ...tempForm, lugar: e.target.value })}
+                          />
+                        </div>
+                        <div className="form-group">
+                          <label>Período</label>
+                          <input
+                            type="text"
+                            placeholder="Ex: 2020-2024 ou 2024"
+                            value={tempForm.periodo || ''}
+                            onChange={e => setTempForm({ ...tempForm, periodo: e.target.value })}
+                          />
+                        </div>
+
+                        {/* Função da Atividade (Checkboxes movidos para cá) */}
+                        <div className="form-group">
+                          <label style={{ fontWeight: 700, color: '#013375', marginBottom: '8px', display: 'block' }}>
+                            Função da Atividade
+                          </label>
+                          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px', background: '#f8fafc', padding: '12px', borderRadius: '8px', border: '1px solid #e2e8f0' }}>
+                            {[
+                              'Superior Local',
+                              'Pároco',
+                              'Diretor (rádios, escolas, fundações, escritórios)',
+                              'Ecônomo Local',
+                              'Vigário',
+                              'Reitor (seminários)',
+                            ].map(r => {
+                              const currentFuns: string[] = Array.isArray(tempForm.funcoes) ? tempForm.funcoes : [];
+                              const isChecked = currentFuns.includes(r);
+                              return (
+                                <label key={r} className="checkbox-label" style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '0.85rem' }}>
+                                  <input
+                                    type="checkbox"
+                                    checked={isChecked}
+                                    onChange={e => {
+                                      let updated = [...currentFuns];
+                                      if (e.target.checked) {
+                                        if (!updated.includes(r)) updated.push(r);
+                                      } else {
+                                        updated = updated.filter(item => item !== r);
+                                      }
+                                      setTempForm({ ...tempForm, funcoes: updated });
+                                    }}
+                                  />
+                                  {r}
+                                </label>
+                              );
+                            })}
+                          </div>
+
+                          {/* Opção Outros */}
+                          <div style={{ marginTop: '10px' }}>
+                            <label style={{ fontSize: '0.85rem', fontWeight: 600, color: '#334155' }}>Outras Funções (preenchimento livre)</label>
+                            <input
+                              type="text"
+                              placeholder="Digite outra função se houver..."
+                              value={tempForm.outra_funcao || ''}
+                              onChange={e => setTempForm({ ...tempForm, outra_funcao: e.target.value })}
+                              style={{ marginTop: '4px', width: '100%', padding: '8px', borderRadius: '6px', border: '1px solid #cbd5e1', fontSize: '0.85rem' }}
+                            />
+                          </div>
+                        </div>
+
+                        <div className="form-group">
+                          <label>Descrição da Missão / Atividades</label>
+                          <textarea
+                            rows={3}
+                            placeholder="Descreva a missão realizada..."
+                            value={tempForm.missao || ''}
+                            onChange={e => setTempForm({ ...tempForm, missao: e.target.value })}
+                          />
+                        </div>
                       </>
                     )}
+
                     {showAddForm === 'obras' && (
                       <>
-                        <div className="form-group"><label>Lugar</label><input type="text" onChange={e => setTempForm({ ...tempForm, lugar: e.target.value })} /></div>
-                        <div className="form-group"><label>Período</label><input type="text" onChange={e => setTempForm({ ...tempForm, periodo: e.target.value })} /></div>
-                        <div className="form-group"><label>Obra Realizada</label><textarea rows={3} onChange={e => setTempForm({ ...tempForm, obra: e.target.value })} /></div>
+                        <div className="form-group"><label>Lugar</label><input type="text" value={tempForm.lugar || ''} onChange={e => setTempForm({ ...tempForm, lugar: e.target.value })} /></div>
+                        <div className="form-group"><label>Período</label><input type="text" value={tempForm.periodo || ''} onChange={e => setTempForm({ ...tempForm, periodo: e.target.value })} /></div>
+                        <div className="form-group"><label>Obra Realizada</label><textarea rows={3} value={tempForm.obra || ''} onChange={e => setTempForm({ ...tempForm, obra: e.target.value })} /></div>
                       </>
                     )}
                     {showAddForm === 'saude' && (
                       <>
-                        <div className="form-group"><label>CNS (Cartão SUS)</label><input type="text" onChange={e => setTempForm({ ...tempForm, sus_card: e.target.value })} /></div>
-                        <div className="form-group"><label>Seguradora</label><input type="text" onChange={e => setTempForm({ ...tempForm, seguradora: e.target.value })} /></div>
-                        <div className="form-group"><label>Nº Carteira</label><input type="text" onChange={e => setTempForm({ ...tempForm, numero_carteira: e.target.value })} /></div>
+                        <div className="form-group"><label>CNS (Cartão SUS)</label><input type="text" value={tempForm.sus_card || ''} onChange={e => setTempForm({ ...tempForm, sus_card: e.target.value })} /></div>
+                        <div className="form-group"><label>Seguradora</label><input type="text" value={tempForm.seguradora || ''} onChange={e => setTempForm({ ...tempForm, seguradora: e.target.value })} /></div>
+                        <div className="form-group"><label>Nº Carteira</label><input type="text" value={tempForm.numero_carteira || ''} onChange={e => setTempForm({ ...tempForm, numero_carteira: e.target.value })} /></div>
                       </>
                     )}
                     {showAddForm === 'banco' && (
                       <>
-                        <div className="form-group"><label>Tipo de Conta</label><input type="text" placeholder="Ex: Corrente, Poupança" onChange={e => setTempForm({ ...tempForm, tipo_conta: e.target.value })} /></div>
-                        <div className="form-group"><label>Titularidade</label><input type="text" onChange={e => setTempForm({ ...tempForm, titularidade: e.target.value })} /></div>
-                        <div className="form-group"><label>Agência</label><input type="text" onChange={e => setTempForm({ ...tempForm, agencia: e.target.value })} /></div>
-                        <div className="form-group"><label>Número Conta</label><input type="text" onChange={e => setTempForm({ ...tempForm, numero: e.target.value })} /></div>
+                        <div className="form-group"><label>Tipo de Conta</label><input type="text" placeholder="Ex: Corrente, Poupança" value={tempForm.tipo_conta || ''} onChange={e => setTempForm({ ...tempForm, tipo_conta: e.target.value })} /></div>
+                        <div className="form-group"><label>Titularidade</label><input type="text" value={tempForm.titularidade || ''} onChange={e => setTempForm({ ...tempForm, titularidade: e.target.value })} /></div>
+                        <div className="form-group"><label>Agência</label><input type="text" value={tempForm.agencia || ''} onChange={e => setTempForm({ ...tempForm, agencia: e.target.value })} /></div>
+                        <div className="form-group"><label>Número Conta</label><input type="text" value={tempForm.numero || ''} onChange={e => setTempForm({ ...tempForm, numero: e.target.value })} /></div>
                       </>
                     )}
                     {showAddForm === 'quadro' && (
@@ -1864,21 +2627,44 @@ const PerfilMissionario: React.FC = () => {
                       </>
                     )}
                     {showAddForm === 'obs' && (
-                      <div className="form-group"><label>Texto da Observação</label><textarea rows={6} onChange={e => setTempForm({ ...tempForm, texto: e.target.value })} /></div>
+                      <div className="form-group"><label>Texto da Observação</label><textarea rows={6} value={tempForm.texto || ''} onChange={e => setTempForm({ ...tempForm, texto: e.target.value })} /></div>
                     )}
                   </div>
+
                   <div className="modal-actions" style={{ marginTop: '25px', display: 'flex', justifyContent: 'flex-end', gap: '10px' }}>
-                    <button className="btn-back" onClick={() => setShowAddForm(null)}>Cancelar</button>
-                    <button className="btn-save-perfil" onClick={() => {
-                      const endpoint = showAddForm === 'formacao' ? 'formacao-academica' :
-                        showAddForm === 'atividade' ? 'atividade-missionaria' :
-                          showAddForm === 'obras' ? 'obras-realizadas' :
-                            showAddForm === 'saude' ? 'saude' :
-                              showAddForm === 'banco' ? 'contas-bancarias' :
-                                showAddForm === 'obs' ? 'observacoes-gerais' :
-                                  showAddForm === 'quadro' ? 'quadro-pessoal' : '';
-                      handleGenericAdd(endpoint, tempForm);
-                    }}>Confirmar</button>
+                    <button className="btn-back" onClick={() => { setShowAddForm(null); setEditingFormacao(null); setEditingAtividade(null); setTempForm({}); }}>Cancelar</button>
+                    <button
+                      className="btn-save-perfil"
+                      onClick={() => {
+                        const endpoint = showAddForm === 'formacao' ? 'formacao-academica' :
+                          showAddForm === 'atividade' ? 'atividade-missionaria' :
+                            showAddForm === 'obras' ? 'obras-realizadas' :
+                              showAddForm === 'saude' ? 'saude' :
+                                showAddForm === 'banco' ? 'contas-bancarias' :
+                                  showAddForm === 'obs' ? 'observacoes-gerais' :
+                                    showAddForm === 'quadro' ? 'quadro-pessoal' : '';
+
+                        // Combine funcoes for atividade
+                        const payload = { ...tempForm };
+                        if (showAddForm === 'atividade') {
+                          const funs: string[] = Array.isArray(tempForm.funcoes) ? [...tempForm.funcoes] : [];
+                          if (tempForm.outra_funcao && tempForm.outra_funcao.trim()) {
+                            funs.push(tempForm.outra_funcao.trim());
+                          }
+                          payload.funcao_atividade = funs.join(', ');
+                        }
+
+                        if (showAddForm === 'formacao' && editingFormacao) {
+                          handleGenericUpdate(endpoint, editingFormacao, payload);
+                        } else if (showAddForm === 'atividade' && editingAtividade) {
+                          handleGenericUpdate(endpoint, editingAtividade, payload);
+                        } else {
+                          handleGenericAdd(endpoint, payload);
+                        }
+                      }}
+                    >
+                      Confirmar
+                    </button>
                   </div>
                 </div>
               </div>

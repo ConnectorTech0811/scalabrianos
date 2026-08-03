@@ -1257,6 +1257,20 @@
   line-height: 1.3;
 }
 
+/* Sub-items under Itinerário Formativo in sidebar */
+.sidebar-nav-item[style*="paddingLeft: 32px"],
+.sidebar-nav-item[style*="padding-left: 32px"] {
+  border-radius: 6px;
+  margin-left: 4px;
+  width: calc(100% - 4px);
+}
+
+.sidebar-nav-item[style*="paddingLeft: 32px"].active {
+  border-left: 3px solid #4f87e8;
+  background: linear-gradient(135deg, #f0f6ff 0%, #e0edff 100%);
+}
+
+
 /* ─── Área principal (tabs + conteúdo) ──────────────────────── */
 .perfil-main-area {
   flex: 1;
@@ -1292,4 +1306,61 @@
     padding-left: 10px;
     padding-bottom: 6px;
   }
+}
+
+/* ─── Accordion & Print Styles ────────────────────────────── */
+.accordion-header:hover {
+  background: #f1f5f9 !important;
+}
+
+.btn-action-lite-text {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background: #f8fafc;
+  border: 1px solid #cbd5e1;
+  color: #013375;
+  padding: 6px 12px;
+  border-radius: 6px;
+  font-size: 0.85rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.btn-action-lite-text:hover {
+  background: #eff6ff;
+  border-color: #93c5fd;
+  color: #1d4ed8;
+}
+
+.btn-itin-doc {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 6px 10px;
+  border-radius: 6px;
+  border: 1px solid #cbd5e1;
+  background: #ffffff;
+  color: #475569;
+  font-size: 0.8rem;
+  font-weight: 600;
+  cursor: pointer;
+  text-decoration: none;
+  transition: all 0.15s ease;
+}
+
+.btn-itin-doc:hover {
+  background: #f1f5f9;
+  color: #0f172a;
+}
+
+.btn-itin-doc.success {
+  background: #f0fdf4;
+  border-color: #bbf7d0;
+  color: #16a34a;
+}
+
+.btn-itin-doc.success:hover {
+  background: #dcfce7;
 }

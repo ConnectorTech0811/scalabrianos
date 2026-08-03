@@ -86,8 +86,8 @@
           "birth_date": "Fecha de Nacimiento",
           "situation": "Situación",
           "parents": "Nombre Padre / Nombre Madre",
-          "birth_place_natural": "Naturalidad",
-          "birth_place_city": "Naturalidad",
+          "birth_place_natural": "Nacimiento",
+          "birth_place_city": "Nacimiento",
           "country": "País",
           "diocese": "Diócesis",
           "nationalities": "Nacionalidades",
@@ -165,11 +165,18 @@
         "contact": "2. Contactos",
         "religious": "3. Datos Religiosos",
         "itinerary": "4. Itinerario Formativo",
+        "formacao_academica": "5. Formación Académica",
+        "atividade_missionaria": "6. Actividad Misionera",
+        "saude_individual": "7. Salud",
+        "previdenciario": "8. Previsional / IR",
+        "contas_bancarias": "9. Cuentas Bancarias",
+        "formacao_missao": "11. Formación & Misión",
         "career": "5/6/11. Formación y Misión",
         "health_finance": "7-10. Salud y Financiero",
         "houses": "Presencia Misionera",
         "access": "Acceso",
         "obs": "12. Observaciones",
+        "quadro_pessoal": "13. Cuadro de Personal CV",
         "permissions": "Permisos"
       },
       "sections": {
@@ -184,7 +191,7 @@
       "actions": {
         "save_civil": "Guardar Datos Civiles y Nacionalidades",
         "save_address": "Guardar Dirección y Contacto",
-        "save_religious": "Guardar Datos Religiosos y Cargos",
+        "save_religious": "Guardar Datos Religiosos",
         "upload_btn": "Enviar Archivo",
         "bind_btn": "Vincular Casa"
       },
