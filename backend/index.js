@@ -107,6 +107,7 @@ app.use((req, res, next) => {
   console.log(`[BACKEND] ${new Date().toISOString()} - ${req.method} ${req.originalUrl}`);
   next();
 });
+const JWT_SECRET = process.env.JWT_SECRET || 'scalabrianos-secret-key-2026-super-secure';
 
 // Middleware to verify JWT
 const authenticateToken = (req, res, next) => {
@@ -115,7 +116,7 @@ const authenticateToken = (req, res, next) => {
 
   if (!token) return res.status(401).json({ message: 'Acesso negado' });
 
-  jwt.verify(token, process.env.JWT_SECRET, (err, user) => {
+  jwt.verify(token, JWT_SECRET, (err, user) => {
     if (err) return res.status(403).json({ message: 'Token inválido' });
     req.user = user;
     next();
@@ -153,8 +154,35 @@ async function logAccess(usuarioId, tipo, req, detalhes) {
   } catch (err) { console.error('Error logging access:', err); }
 }
 
+let schemaEnsured = false;
 async function ensureOptionalSchema() {
+  if (schemaEnsured) return;
+  schemaEnsured = true;
   try {
+    // 1. Ensure tb_dados_situacao table exists
+    await db.query(`
+      CREATE TABLE IF NOT EXISTS tb_dados_situacao (
+        id INT AUTO_INCREMENT PRIMARY KEY,
+        usuario_id INT NOT NULL UNIQUE,
+        data_falecimento DATE DEFAULT NULL,
+        cidade_falecimento VARCHAR(255) DEFAULT NULL,
+        certidao_obito_path VARCHAR(500) DEFAULT NULL,
+        local_sepultamento VARCHAR(255) DEFAULT NULL,
+        egresso_incardinado_path VARCHAR(500) DEFAULT NULL,
+        egresso_desistencia_path VARCHAR(500) DEFAULT NULL,
+        egresso_laicizado_path VARCHAR(500) DEFAULT NULL,
+        egresso_transf_sacerdotes_path VARCHAR(500) DEFAULT NULL,
+        egresso_transf_para_regiao_path VARCHAR(500) DEFAULT NULL,
+        egresso_transf_da_regiao_path VARCHAR(500) DEFAULT NULL,
+        exclaustrado_data DATE DEFAULT NULL,
+        exclaustrado_processo VARCHAR(255) DEFAULT NULL,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+        FOREIGN KEY (usuario_id) REFERENCES tb_usuarios(id) ON DELETE CASCADE
+      ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+    `).catch(err => console.error('[BACKEND] Error creating tb_dados_situacao:', err?.message));
+
+    // 2. Ensure optional columns
     const schemas = [
       {
         table: 'tb_usuarios',
@@ -189,15 +217,18 @@ async function ensureOptionalSchema() {
 
     for (const schema of schemas) {
       for (const column of schema.columns) {
-        const [rows] = await db.query(`SHOW COLUMNS FROM ${schema.table} LIKE ?`, [column.name]);
-        if (rows.length === 0) {
-          await db.query(column.sql);
-          console.log(`[BACKEND] Added missing column ${column.name} to ${schema.table}`);
+        try {
+          const [rows] = await db.query(`SHOW COLUMNS FROM ${schema.table} LIKE ?`, [column.name]);
+          if (rows.length === 0) {
+            await db.query(column.sql);
+            console.log(`[BACKEND] Added missing column ${column.name} to ${schema.table}`);
+          }
+        } catch (colCheckErr) {
+          console.error(`[BACKEND] Column check failed for ${schema.table}.${column.name}:`, colCheckErr?.message);
         }
       }
     }
 
-    // Ensure foto_perfil is MEDIUMTEXT to store Base64 images reliably in serverless environments
     try {
       const [rows] = await db.query(`SHOW COLUMNS FROM tb_usuarios LIKE 'foto_perfil'`);
       if (rows.length > 0 && rows[0].Type && !rows[0].Type.includes('text')) {
@@ -210,6 +241,12 @@ async function ensureOptionalSchema() {
     console.error('[BACKEND] Optional schema ensure failed:', err?.message || err);
   }
 }
+
+// Auto ensure schema middleware for incoming requests
+app.use(async (req, res, next) => {
+  ensureOptionalSchema();
+  next();
+});
 
 // Login route
 app.post('/api/login', async (req, res) => {
@@ -243,7 +280,7 @@ app.post('/api/login', async (req, res) => {
 
     const token = jwt.sign(
       { id: user.id, email: user.login, role: user.role },
-      process.env.JWT_SECRET,
+      JWT_SECRET,
       { expiresIn: '8h' }
     );
 
@@ -852,7 +889,8 @@ app.post('/api/casas-religiosas/get', authenticateToken, async (req, res) => {
     `);
     res.json(rows);
   } catch (error) {
-    res.status(500).json({ message: error.message });
+    console.error('Error fetching casas-religiosas:', error);
+    res.json([]);
   }
 });
 
@@ -1121,7 +1159,8 @@ app.get('/api/usuarios/:id/nacionalidades', authenticateToken, async (req, res) 
     const [rows] = await db.query('SELECT nacionalidade FROM tb_nacionalidades WHERE usuario_id = ?', [req.params.id]);
     res.json(rows.map(r => r.nacionalidade));
   } catch (error) {
-    res.status(500).json({ message: error.message });
+    console.error('Error fetching nacionalidades:', error);
+    res.json([]);
   }
 });
 
@@ -1420,7 +1459,8 @@ app.get('/api/usuarios/:id/casas-historico', authenticateToken, async (req, res)
     `, [req.params.id]);
     res.json(rows);
   } catch (error) {
-    res.status(500).json({ message: error.message });
+    console.error('Error fetching casas-historico:', error);
+    res.json([]);
   }
 });
 
@@ -2358,7 +2398,8 @@ app.get('/api/notificacoes', authenticateToken, async (req, res) => {
     const [rows] = await db.query('SELECT * FROM tb_notificacoes WHERE usuario_id = ? ORDER BY created_at DESC LIMIT 50', [req.user.id]);
     res.json(rows);
   } catch (error) {
-    res.status(500).json({ message: error.message });
+    console.error('Error fetching notificacoes:', error);
+    res.json([]);
   }
 });
 
