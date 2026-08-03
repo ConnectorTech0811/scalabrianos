@@ -295,9 +295,6 @@ const PerfilMissionario: React.FC = () => {
   const [newPassword, setNewPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
 
-  // Itinerary cascade state
-  const [expandedItinSections, setExpandedItinSections] = useState<Record<string, boolean>>({ '4.1': true, '4.2': false, '4.3': false, '4.4': false });
-  const toggleItinSection = (key: string) => setExpandedItinSections(prev => ({ ...prev, [key]: !prev[key] }));
 
   // Sidebar cascade for Itinerário Formativo
   const [itinSidebarExpanded, setItinSidebarExpanded] = useState(false);
