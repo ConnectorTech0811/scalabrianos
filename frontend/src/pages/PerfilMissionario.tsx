@@ -717,12 +717,18 @@ const PerfilMissionario: React.FC = () => {
 
       const normSit = normalizeSituacao(mRes.data?.situacao);
       setMissionario({ ...mRes.data, situacao: normSit });
-      if (normSit === 'Egresso') {
+      const isSelf = authUser?.id === mRes.data?.id;
+
+      if (isSelf) {
+        setActiveTab('dados');
+      } else if (normSit === 'Egresso') {
         setActiveTab('situacao_egresso_incardinado_path');
       } else if (normSit === 'Falecido') {
         setActiveTab('situacao_falecido_data_cidade');
       } else if (normSit === 'Exclaustrado') {
         setActiveTab('situacao_exclaustrado_data');
+      } else {
+        setActiveTab('dados');
       }
       if (civRes.data) {
         const parts = civRes.data.filiacao ? civRes.data.filiacao.split('/') : [];
@@ -1092,20 +1098,20 @@ const PerfilMissionario: React.FC = () => {
   if (isLoading) return <div className="perfil-loading"><Loader2 className="animate-spin" size={40} /><p>{t('profile.loading')}</p></div>;
   if (!missionario) return <div className="perfil-loading"><AlertCircle size={40} /><p>{t('profile.not_found')}</p></div>;
 
-  // Tabs principais (Situação, Dados Civis e Contatos)
-  const mainTabs = [
-    { key: 'situacao', label: '0. Situação', icon: <Star size={16} />, perm: 'dados_civis' },
-    { key: 'dados', label: t('profile.tabs.personal'), icon: <User size={16} />, perm: 'dados_civis' },
-    { key: 'contatos', label: t('profile.tabs.contact'), icon: <MapPin size={16} />, perm: 'contatos' },
-  ];
-
   const currentSituacao = normalizeSituacao(missionario?.situacao);
   const isSelfProfile = authUser?.id === missionario?.id;
   const canPrint = (isAdminGeral || canEdit || isRegional) && !isSelfProfile;
 
+  // Tabs principais (Situação só aparece para Admin/Regional)
+  const mainTabs = [
+    ...(!isSelfProfile ? [{ key: 'situacao', label: '0. Situação', icon: <Star size={16} />, perm: 'dados_civis' }] : []),
+    { key: 'dados', label: t('profile.tabs.personal'), icon: <User size={16} />, perm: 'dados_civis' },
+    { key: 'contatos', label: t('profile.tabs.contact'), icon: <MapPin size={16} />, perm: 'contatos' },
+  ];
+
   let sidebarItems: { key: string; label: string; icon: React.ReactNode; perm: string | null }[] = [];
 
-  if (currentSituacao === 'Egresso') {
+  if (!isSelfProfile && currentSituacao === 'Egresso') {
     sidebarItems = [
       { key: 'situacao_egresso_incardinado_path', label: '1. Incardinados', icon: <FileText size={16} />, perm: null },
       { key: 'situacao_egresso_desistencia_path', label: '2. Desistência ou outro inst.', icon: <FileText size={16} />, perm: null },
@@ -1117,7 +1123,7 @@ const PerfilMissionario: React.FC = () => {
       { key: 'acesso', label: t('profile.tabs.access'), icon: <Lock size={16} />, perm: null },
       { key: 'permissoes', label: t('profile.tabs.permissions'), icon: <ShieldCheck size={16} />, perm: null },
     ];
-  } else if (currentSituacao === 'Falecido') {
+  } else if (!isSelfProfile && currentSituacao === 'Falecido') {
     sidebarItems = [
       { key: 'situacao_falecido_data_cidade', label: '1. Data e Cidade', icon: <FileText size={16} />, perm: null },
       { key: 'situacao_certidao_obito_path', label: '2. Certidão de Óbito', icon: <FileText size={16} />, perm: null },
@@ -1126,7 +1132,7 @@ const PerfilMissionario: React.FC = () => {
       { key: 'acesso', label: t('profile.tabs.access'), icon: <Lock size={16} />, perm: null },
       { key: 'permissoes', label: t('profile.tabs.permissions'), icon: <ShieldCheck size={16} />, perm: null },
     ];
-  } else if (currentSituacao === 'Exclaustrado') {
+  } else if (!isSelfProfile && currentSituacao === 'Exclaustrado') {
     sidebarItems = [
       { key: 'situacao_exclaustrado_data', label: '1. Data de Exclaustração', icon: <FileText size={16} />, perm: null },
       { key: 'situacao_exclaustrado_processo', label: '2. Processo / Decreto', icon: <FileText size={16} />, perm: null },
@@ -1251,9 +1257,11 @@ const PerfilMissionario: React.FC = () => {
           <div className="perfil-name-section" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', width: '100%' }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: '15px' }}>
               <h1>{missionario.nome}</h1>
-              <span className={`situacao-tag-premium ${(missionario.situacao || '').toLowerCase()}`}>
-                {missionario.situacao}
-              </span>
+              {!isSelfProfile && (
+                <span className={`situacao-tag-premium ${(missionario.situacao || '').toLowerCase()}`}>
+                  {missionario.situacao}
+                </span>
+              )}
             </div>
             {canEdit && (
               <button
