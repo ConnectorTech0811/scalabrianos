@@ -84,6 +84,7 @@ interface SituacaoData {
   egresso_incardinado_path: string;
   egresso_desistencia_path: string;
   egresso_laicizado_path: string;
+  egresso_transf_sacerdotes_path: string;
   egresso_transf_para_regiao_path: string;
   egresso_transf_da_regiao_path: string;
   exclaustrado_data: string;
@@ -237,7 +238,14 @@ const PERMISSIONS_LIST = [
   { id: 'quadro_pessoal', label: '13. Quadro de Pessoal CV (Visualização)' },
 ];
 
-// ─── Component ───────────────────────────────────────────────────────────────
+const normalizeSituacao = (sit?: string): string => {
+  if (!sit) return 'Ativo';
+  const clean = sit.trim().toUpperCase();
+  if (clean === 'EGRESSO') return 'Egresso';
+  if (clean === 'FALECIDO') return 'Falecido';
+  if (clean === 'EXCLAUSTRADO') return 'Exclaustrado';
+  return 'Ativo';
+};
 
 const PerfilMissionario: React.FC = () => {
   const { id } = useParams<{ id: string }>();
@@ -285,9 +293,83 @@ const PerfilMissionario: React.FC = () => {
   const [situacaoData, setSituacaoData] = useState<SituacaoData>({
     data_falecimento: '', cidade_falecimento: '', certidao_obito_path: '', local_sepultamento: '',
     egresso_incardinado_path: '', egresso_desistencia_path: '', egresso_laicizado_path: '',
-    egresso_transf_para_regiao_path: '', egresso_transf_da_regiao_path: '',
+    egresso_transf_sacerdotes_path: '', egresso_transf_para_regiao_path: '', egresso_transf_da_regiao_path: '',
     exclaustrado_data: '', exclaustrado_processo: ''
   });
+
+  const uploadSituacaoDoc = async (campo: keyof SituacaoData, e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const fd = new FormData();
+    fd.append('arquivo', file);
+    fd.append('campo', campo);
+    setIsSaving(true);
+    try {
+      const res = await api.post(`/usuarios/${id}/situacao/upload-doc`, fd, {
+        headers: { 'Content-Type': 'multipart/form-data' },
+      });
+      if (res.data?.filePath) {
+        setSituacaoData(prev => ({ ...prev, [campo]: res.data.filePath }));
+        alert('Documento anexado com sucesso!');
+      }
+    } catch (err: any) {
+      alert('Erro ao enviar documento: ' + (err?.response?.data?.message || err.message));
+    } finally {
+      setIsSaving(false);
+      e.target.value = '';
+    }
+  };
+
+  const renderSituacaoDocField = (label: string, campo: keyof SituacaoData, elementId?: string) => {
+    const filePath = situacaoData[campo] as string;
+    return (
+      <div id={elementId} className="form-group full" style={{ background: '#f8fafc', padding: '12px 16px', borderRadius: '10px', border: '1px solid #e2e8f0', marginBottom: '10px', transition: 'all 0.3s ease' }}>
+        <label style={{ fontWeight: 600, color: '#334155', marginBottom: '6px', display: 'block' }}>{label}</label>
+        {filePath ? (
+          <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flexWrap: 'wrap' }}>
+            <a
+              href={`${api.defaults.baseURL?.replace('/api', '') || ''}${filePath}`}
+              target="_blank"
+              rel="noreferrer"
+              style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', color: '#1d4ed8', fontWeight: 600, textDecoration: 'none', background: '#eff6ff', padding: '6px 12px', borderRadius: '6px', border: '1px solid #bfdbfe' }}
+            >
+              <FileText size={16} /> Ver Documento Anexado
+            </a>
+            {canEdit && (
+              <button
+                type="button"
+                onClick={() => setSituacaoData(prev => ({ ...prev, [campo]: '' }))}
+                style={{ background: '#fee2e2', color: '#991b1b', border: '1px solid #fca5a5', borderRadius: '6px', padding: '6px 10px', cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: '4px', fontSize: '0.85rem' }}
+              >
+                <Trash2 size={14} /> Remover Anexo
+              </button>
+            )}
+          </div>
+        ) : (
+          canEdit ? (
+            <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+              <input
+                type="file"
+                id={`file-input-${campo}`}
+                accept=".pdf,.jpg,.jpeg,.png"
+                style={{ display: 'none' }}
+                onChange={e => uploadSituacaoDoc(campo, e)}
+              />
+              <label
+                htmlFor={`file-input-${campo}`}
+                style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', background: '#3b82f6', color: '#fff', padding: '8px 16px', borderRadius: '8px', cursor: 'pointer', fontWeight: 600, fontSize: '0.85rem' }}
+              >
+                <Upload size={15} /> Anexar Documento (PDF / JPEG)
+              </label>
+              <span style={{ fontSize: '0.8rem', color: '#64748b' }}>Nenhum arquivo anexado</span>
+            </div>
+          ) : (
+            <span style={{ fontSize: '0.85rem', color: '#94a3b8', fontStyle: 'italic' }}>Nenhum documento anexado.</span>
+          )
+        )}
+      </div>
+    );
+  };
 
   // Forms for adding
   const [showAddForm, setShowAddForm] = useState<string | null>(null);
@@ -633,7 +715,15 @@ const PerfilMissionario: React.FC = () => {
         api.get(`/usuarios/${id}/itinerario`),
       ]);
 
-      setMissionario(mRes.data);
+      const normSit = normalizeSituacao(mRes.data?.situacao);
+      setMissionario({ ...mRes.data, situacao: normSit });
+      if (normSit === 'Egresso') {
+        setActiveTab('situacao_egresso_incardinado_path');
+      } else if (normSit === 'Falecido') {
+        setActiveTab('situacao_falecido_data_cidade');
+      } else if (normSit === 'Exclaustrado') {
+        setActiveTab('situacao_exclaustrado_data');
+      }
       if (civRes.data) {
         const parts = civRes.data.filiacao ? civRes.data.filiacao.split('/') : [];
         setCivilData({
@@ -1009,22 +1099,74 @@ const PerfilMissionario: React.FC = () => {
     { key: 'contatos', label: t('profile.tabs.contact'), icon: <MapPin size={16} />, perm: 'contatos' },
   ];
 
-  // Itens da sidebar esquerda em cascata (abas que saíram do menu)
-  const sidebarItems = [
-    { key: 'religiosos', label: t('profile.tabs.religious'), icon: <BookOpen size={16} />, perm: 'dados_religiosos' },
-    { key: 'itinerario', label: t('profile.tabs.itinerary'), icon: <Activity size={16} />, perm: 'itinerario_formativo' },
-    { key: 'formacao_academica', label: t('profile.tabs.formacao_academica'), icon: <GraduationCap size={16} />, perm: 'formacao_academica' },
-    { key: 'atividade_missionaria', label: t('profile.tabs.atividade_missionaria'), icon: <MapPin size={16} />, perm: 'atividade_missionaria' },
-    { key: 'saude_individual', label: t('profile.tabs.saude_individual'), icon: <Activity size={16} />, perm: 'saude' },
-    { key: 'previdenciario', label: t('profile.tabs.previdenciario'), icon: <ShieldCheck size={16} />, perm: 'previdenciario_ir' },
-    { key: 'contas_bancarias', label: t('profile.tabs.contas_bancarias'), icon: <DollarSign size={16} />, perm: 'conta_bancaria' },
-    { key: 'formacao_missao', label: t('profile.tabs.formacao_missao'), icon: <Star size={16} />, perm: 'obras_realizadas' },
-    { key: 'obs', label: t('profile.tabs.obs'), icon: <FileText size={16} />, perm: 'observacoes' },
-    { key: 'quadro_pessoal', label: t('profile.tabs.quadro_pessoal'), icon: <Users size={16} />, perm: 'quadro_pessoal' },
-    { key: 'casas', label: t('profile.tabs.houses'), icon: <HomeIcon size={16} />, perm: null },
-    { key: 'acesso', label: t('profile.tabs.access'), icon: <Lock size={16} />, perm: null },
-    { key: 'permissoes', label: t('profile.tabs.permissions'), icon: <ShieldCheck size={16} />, perm: null },
-  ];
+  const currentSituacao = normalizeSituacao(missionario?.situacao);
+  const isSelfProfile = authUser?.id === missionario?.id;
+  const canPrint = (isAdminGeral || canEdit || isRegional) && !isSelfProfile;
+
+  let sidebarItems: { key: string; label: string; icon: React.ReactNode; perm: string | null }[] = [];
+
+  if (currentSituacao === 'Egresso') {
+    sidebarItems = [
+      { key: 'situacao_egresso_incardinado_path', label: '1. Incardinados', icon: <FileText size={16} />, perm: null },
+      { key: 'situacao_egresso_desistencia_path', label: '2. Desistência ou outro inst.', icon: <FileText size={16} />, perm: null },
+      { key: 'situacao_egresso_laicizado_path', label: '3. Laicizados', icon: <FileText size={16} />, perm: null },
+      { key: 'situacao_egresso_transf_sacerdotes_path', label: '4. Sacerdotes/Rel. Transf.', icon: <FileText size={16} />, perm: null },
+      { key: 'situacao_egresso_transf_para_regiao_path', label: '5. Para a Região', icon: <FileText size={16} />, perm: null },
+      { key: 'situacao_egresso_transf_da_regiao_path', label: '6. Da Região p/ Províncias', icon: <FileText size={16} />, perm: null },
+      { key: 'casas', label: 'Histórico de Presença', icon: <HomeIcon size={16} />, perm: null },
+      { key: 'acesso', label: t('profile.tabs.access'), icon: <Lock size={16} />, perm: null },
+      { key: 'permissoes', label: t('profile.tabs.permissions'), icon: <ShieldCheck size={16} />, perm: null },
+    ];
+  } else if (currentSituacao === 'Falecido') {
+    sidebarItems = [
+      { key: 'situacao_falecido_data_cidade', label: '1. Data e Cidade', icon: <FileText size={16} />, perm: null },
+      { key: 'situacao_certidao_obito_path', label: '2. Certidão de Óbito', icon: <FileText size={16} />, perm: null },
+      { key: 'situacao_falecido_sepultamento', label: '3. Local de Sepultamento', icon: <FileText size={16} />, perm: null },
+      { key: 'casas', label: 'Histórico de Presença', icon: <HomeIcon size={16} />, perm: null },
+      { key: 'acesso', label: t('profile.tabs.access'), icon: <Lock size={16} />, perm: null },
+      { key: 'permissoes', label: t('profile.tabs.permissions'), icon: <ShieldCheck size={16} />, perm: null },
+    ];
+  } else if (currentSituacao === 'Exclaustrado') {
+    sidebarItems = [
+      { key: 'situacao_exclaustrado_data', label: '1. Data de Exclaustração', icon: <FileText size={16} />, perm: null },
+      { key: 'situacao_exclaustrado_processo', label: '2. Processo / Decreto', icon: <FileText size={16} />, perm: null },
+      { key: 'casas', label: 'Histórico de Presença', icon: <HomeIcon size={16} />, perm: null },
+      { key: 'acesso', label: t('profile.tabs.access'), icon: <Lock size={16} />, perm: null },
+      { key: 'permissoes', label: t('profile.tabs.permissions'), icon: <ShieldCheck size={16} />, perm: null },
+    ];
+  } else {
+    sidebarItems = [
+      { key: 'religiosos', label: t('profile.tabs.religious'), icon: <BookOpen size={16} />, perm: 'dados_religiosos' },
+      { key: 'itinerario', label: t('profile.tabs.itinerary'), icon: <Activity size={16} />, perm: 'itinerario_formativo' },
+      { key: 'formacao_academica', label: t('profile.tabs.formacao_academica'), icon: <GraduationCap size={16} />, perm: 'formacao_academica' },
+      { key: 'atividade_missionaria', label: t('profile.tabs.atividade_missionaria'), icon: <MapPin size={16} />, perm: 'atividade_missionaria' },
+      { key: 'saude_individual', label: t('profile.tabs.saude_individual'), icon: <Activity size={16} />, perm: 'saude' },
+      { key: 'previdenciario', label: t('profile.tabs.previdenciario'), icon: <ShieldCheck size={16} />, perm: 'previdenciario_ir' },
+      { key: 'contas_bancarias', label: t('profile.tabs.contas_bancarias'), icon: <DollarSign size={16} />, perm: 'conta_bancaria' },
+      { key: 'formacao_missao', label: t('profile.tabs.formacao_missao'), icon: <Star size={16} />, perm: 'obras_realizadas' },
+      { key: 'obs', label: t('profile.tabs.obs'), icon: <FileText size={16} />, perm: 'observacoes' },
+      { key: 'quadro_pessoal', label: t('profile.tabs.quadro_pessoal'), icon: <Users size={16} />, perm: 'quadro_pessoal' },
+      { key: 'casas', label: t('profile.tabs.houses'), icon: <HomeIcon size={16} />, perm: null },
+      { key: 'acesso', label: t('profile.tabs.access'), icon: <Lock size={16} />, perm: null },
+      { key: 'permissoes', label: t('profile.tabs.permissions'), icon: <ShieldCheck size={16} />, perm: null },
+    ];
+  }
+
+  const handleSidebarItemClick = (key: string) => {
+    setActiveTab(key);
+  };
+
+  const handleMainTabClick = (key: string) => {
+    if (key === 'situacao') {
+      const normSit = normalizeSituacao(missionario?.situacao);
+      if (normSit === 'Egresso') setActiveTab('situacao_egresso_incardinado_path');
+      else if (normSit === 'Falecido') setActiveTab('situacao_falecido_data_cidade');
+      else if (normSit === 'Exclaustrado') setActiveTab('situacao_exclaustrado_data');
+      else setActiveTab('situacao');
+    } else {
+      setActiveTab(key);
+    }
+  };
 
   const TABS = mainTabs.filter(tab => {
     if (isAdminGeral || (canEdit && authUser?.id !== missionario.id)) return true;
@@ -1196,7 +1338,7 @@ const PerfilMissionario: React.FC = () => {
                 <button
                   key={item.key}
                   className={`sidebar-nav-item ${activeTab === item.key ? 'active' : ''}`}
-                  onClick={() => setActiveTab(item.key)}
+                  onClick={() => handleSidebarItemClick(item.key)}
                 >
                   <span className="sidebar-nav-icon">{item.icon}</span>
                   <span className="sidebar-nav-label">{item.label}</span>
@@ -1209,95 +1351,179 @@ const PerfilMissionario: React.FC = () => {
         {/* Área principal com tabs Dados Civis e Contatos */}
         <div className="perfil-main-area">
           <div className="perfil-tabs">
-            {TABS.map(tab => (
-              <button key={tab.key} className={`tab-btn ${activeTab === tab.key ? 'active' : ''}`} onClick={() => setActiveTab(tab.key)}>
-                {tab.icon} {tab.label}
-              </button>
-            ))}
+            {TABS.map(tab => {
+              const isActive = tab.key === 'situacao' ? (activeTab === 'situacao' || activeTab.startsWith('situacao_')) : activeTab === tab.key;
+              return (
+                <button key={tab.key} className={`tab-btn ${isActive ? 'active' : ''}`} onClick={() => handleMainTabClick(tab.key)}>
+                  {tab.icon} {tab.label}
+                </button>
+              );
+            })}
           </div>
 
           <div className="perfil-content">
             {/* --- 0. SITUAÇÃO --- */}
-            {activeTab === 'situacao' && (
+            {(activeTab === 'situacao' || activeTab.startsWith('situacao_')) && (() => {
+              const currentSituacao = normalizeSituacao(missionario.situacao);
+              return (
               <div className="tab-panel">
                 <div className="section-card" id="print-situacao">
                   <div className="section-header-flex">
                     <h3 className="section-title"><Star size={16} /> 0. Situação do Missionário</h3>
-                    <button className="btn-action-lite-text" onClick={() => printSection('0. Situação', 'print-situacao')}>
-                      <Printer size={15} /> Imprimir
-                    </button>
+                    {canPrint && (
+                      <button className="btn-action-lite-text" onClick={() => printSection('0. Situação', 'print-situacao')}>
+                        <Printer size={15} /> Imprimir
+                      </button>
+                    )}
                   </div>
 
                   {/* Status badge display */}
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '16px', marginBottom: '28px', flexWrap: 'wrap' }}>
-                    <span className={`situacao-tag-premium ${(missionario.situacao || '').toLowerCase()}`} style={{ fontSize: '1rem', padding: '10px 24px' }}>
-                      {missionario.situacao || 'N/A'}
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '16px', marginBottom: '24px', flexWrap: 'wrap' }}>
+                    <span className={`situacao-tag-premium ${currentSituacao.toLowerCase()}`} style={{ fontSize: '1rem', padding: '10px 24px' }}>
+                      {currentSituacao}
                     </span>
                     <span style={{ color: '#64748b', fontSize: '0.9rem' }}>Situação atual do missionário no sistema</span>
                   </div>
 
+                  {/* Alterar Situação (quando edita) */}
                   {canEdit && (
-                    <>
-                      {/* Selector de situação */}
-                      <div className="form-grid-2" style={{ marginBottom: '20px' }}>
-                        <div className="form-group">
-                          <label>Alterar Situação</label>
-                          <select
-                            value={missionario.situacao || ''}
-                            onChange={e => setMissionario({ ...missionario, situacao: e.target.value } as any)}
-                          >
-                            <option value="Ativo">Ativo</option>
-                            <option value="Egresso">Egresso</option>
-                            <option value="Falecido">Falecido</option>
-                            <option value="Exclaustrado">Exclaustrado</option>
-                            <option value="Ad Nutum">Ad Nutum</option>
-                          </select>
-                        </div>
+                    <div className="form-grid-2" style={{ marginBottom: '24px' }}>
+                      <div className="form-group">
+                        <label>Alterar Situação do Missionário</label>
+                        <select
+                          value={currentSituacao}
+                          onChange={e => setMissionario({ ...missionario, situacao: e.target.value } as any)}
+                        >
+                          <option value="Ativo">Ativo</option>
+                          <option value="Egresso">Egresso</option>
+                          <option value="Falecido">Falecido</option>
+                          <option value="Exclaustrado">Exclaustrado</option>
+                        </select>
                       </div>
+                    </div>
+                  )}
 
-                      {/* Falecido fields */}
-                      {missionario.situacao === 'Falecido' && (
-                        <div className="form-grid-2">
+                  {/* ── FALECIDO ── */}
+                  {currentSituacao === 'Falecido' && (
+                    <div style={{ background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: '12px', padding: '20px', marginBottom: '20px' }}>
+                      <h4 style={{ margin: '0 0 16px 0', color: '#334155', fontSize: '1rem', borderBottom: '2px solid #cbd5e1', paddingBottom: '8px' }}>
+                        🕊️ Informações de Falecimento
+                      </h4>
+                      {(activeTab === 'situacao' || activeTab === 'situacao_falecido_data_cidade') && (
+                        <div id="falecido_data_cidade" className="form-grid-2" style={{ marginBottom: '16px' }}>
                           <div className="form-group">
                             <label>Data de Falecimento</label>
-                            <input type="date" value={situacaoData.data_falecimento} onChange={e => setSituacaoData({ ...situacaoData, data_falecimento: e.target.value })} />
+                            <input
+                              type="date"
+                              value={situacaoData.data_falecimento || ''}
+                              onChange={e => setSituacaoData({ ...situacaoData, data_falecimento: e.target.value })}
+                              disabled={!canEdit}
+                            />
                           </div>
                           <div className="form-group">
                             <label>Cidade de Falecimento</label>
-                            <input type="text" value={situacaoData.cidade_falecimento} onChange={e => setSituacaoData({ ...situacaoData, cidade_falecimento: e.target.value })} />
-                          </div>
-                          <div className="form-group">
-                            <label>Local de Sepultamento</label>
-                            <input type="text" value={situacaoData.local_sepultamento} onChange={e => setSituacaoData({ ...situacaoData, local_sepultamento: e.target.value })} />
+                            <input
+                              type="text"
+                              value={situacaoData.cidade_falecimento || ''}
+                              onChange={e => setSituacaoData({ ...situacaoData, cidade_falecimento: e.target.value })}
+                              placeholder="Cidade - UF / País"
+                              disabled={!canEdit}
+                            />
                           </div>
                         </div>
                       )}
+                      {(activeTab === 'situacao' || activeTab === 'situacao_certidao_obito_path') && (
+                        renderSituacaoDocField('Certidão de Óbito (PDF / JPEG)', 'certidao_obito_path', 'certidao_obito_path')
+                      )}
+                      {(activeTab === 'situacao' || activeTab === 'situacao_falecido_sepultamento') && (
+                        <div id="falecido_sepultamento" className="form-group full">
+                          <label>Local de Sepultamento</label>
+                          <input
+                            type="text"
+                            value={situacaoData.local_sepultamento || ''}
+                            onChange={e => setSituacaoData({ ...situacaoData, local_sepultamento: e.target.value })}
+                            placeholder="Cemitério, Jazigo, Cidade..."
+                            disabled={!canEdit}
+                          />
+                        </div>
+                      )}
+                    </div>
+                  )}
 
-                      {/* Exclaustrado fields */}
-                      {missionario.situacao === 'Exclaustrado' && (
-                        <div className="form-grid-2">
-                          <div className="form-group">
-                            <label>Data Exclaustração</label>
-                            <input type="date" value={situacaoData.exclaustrado_data} onChange={e => setSituacaoData({ ...situacaoData, exclaustrado_data: e.target.value })} />
+                  {/* ── EGRESSO ── */}
+                  {currentSituacao === 'Egresso' && (
+                    <div style={{ background: '#fefce8', border: '1px solid #fef08a', borderRadius: '12px', padding: '20px', marginBottom: '20px' }}>
+                      <h4 style={{ margin: '0 0 16px 0', color: '#854d0e', fontSize: '1rem', borderBottom: '2px solid #fde047', paddingBottom: '8px' }}>
+                        📋 Documentos e Informações de Egresso
+                      </h4>
+
+                      {(activeTab === 'situacao' || activeTab === 'situacao_egresso_incardinado_path') && (
+                        renderSituacaoDocField('1. Incardinados (Documento PDF / JPEG)', 'egresso_incardinado_path', 'egresso_incardinado_path')
+                      )}
+                      {(activeTab === 'situacao' || activeTab === 'situacao_egresso_desistencia_path') && (
+                        renderSituacaoDocField('2. Desistência ou em outro instituto (Documento PDF / JPEG)', 'egresso_desistencia_path', 'egresso_desistencia_path')
+                      )}
+                      {(activeTab === 'situacao' || activeTab === 'situacao_egresso_laicizado_path') && (
+                        renderSituacaoDocField('3. Laicizados (Documento PDF / JPEG)', 'egresso_laicizado_path', 'egresso_laicizado_path')
+                      )}
+                      {(activeTab === 'situacao' || activeTab === 'situacao_egresso_transf_sacerdotes_path') && (
+                        renderSituacaoDocField('4. Sacerdotes e Religiosos Transferidos (Documento PDF / JPEG)', 'egresso_transf_sacerdotes_path', 'egresso_transf_sacerdotes_path')
+                      )}
+                      {(activeTab === 'situacao' || activeTab === 'situacao_egresso_transf_para_regiao_path') && (
+                        renderSituacaoDocField('5. Para a Região (Documento PDF / JPEG)', 'egresso_transf_para_regiao_path', 'egresso_transf_para_regiao_path')
+                      )}
+                      {(activeTab === 'situacao' || activeTab === 'situacao_egresso_transf_da_regiao_path') && (
+                        renderSituacaoDocField('6. Da Região para outras Províncias / Região (Documento PDF / JPEG)', 'egresso_transf_da_regiao_path', 'egresso_transf_da_regiao_path')
+                      )}
+                    </div>
+                  )}
+
+                  {/* ── EXCLAUSTRADO ── */}
+                  {currentSituacao === 'Exclaustrado' && (
+                    <div style={{ background: '#fef2f2', border: '1px solid #fecaca', borderRadius: '12px', padding: '20px', marginBottom: '20px' }}>
+                      <h4 style={{ margin: '0 0 16px 0', color: '#991b1b', fontSize: '1rem', borderBottom: '2px solid #fca5a5', paddingBottom: '8px' }}>
+                        📜 Informações de Exclaustração
+                      </h4>
+                      <div className="form-grid-2">
+                        {(activeTab === 'situacao' || activeTab === 'situacao_exclaustrado_data') && (
+                          <div id="exclaustrado_data" className="form-group">
+                            <label>Data de Exclaustração</label>
+                            <input
+                              type="date"
+                              value={situacaoData.exclaustrado_data || ''}
+                              onChange={e => setSituacaoData({ ...situacaoData, exclaustrado_data: e.target.value })}
+                              disabled={!canEdit}
+                            />
                           </div>
-                          <div className="form-group">
+                        )}
+                        {(activeTab === 'situacao' || activeTab === 'situacao_exclaustrado_processo') && (
+                          <div id="exclaustrado_processo" className="form-group">
                             <label>Processo / Decreto</label>
-                            <input type="text" value={situacaoData.exclaustrado_processo} onChange={e => setSituacaoData({ ...situacaoData, exclaustrado_processo: e.target.value })} />
+                            <input
+                              type="text"
+                              value={situacaoData.exclaustrado_processo || ''}
+                              onChange={e => setSituacaoData({ ...situacaoData, exclaustrado_processo: e.target.value })}
+                              placeholder="Número do processo ou decreto..."
+                              disabled={!canEdit}
+                            />
                           </div>
-                        </div>
-                      )}
-
-                      <div className="section-actions" style={{ marginTop: '20px' }}>
-                        <button className="btn-save-perfil" onClick={saveReligiosos} disabled={isSaving}>
-                          {isSaving ? <Loader2 size={16} className="animate-spin" /> : <Save size={16} />}
-                          Salvar Situação
-                        </button>
+                        )}
                       </div>
-                    </>
+                    </div>
+                  )}
+
+                  {canEdit && (
+                    <div className="section-actions" style={{ marginTop: '20px' }}>
+                      <button className="btn-save-perfil" onClick={saveReligiosos} disabled={isSaving}>
+                        {isSaving ? <Loader2 size={16} className="animate-spin" /> : <Save size={16} />}
+                        Salvar Situação
+                      </button>
+                    </div>
                   )}
                 </div>
               </div>
-            )}
+              );
+            })()}
 
             {/* --- 1. DADOS CIVIS --- */}
             {activeTab === 'dados' && (
@@ -1305,9 +1531,11 @@ const PerfilMissionario: React.FC = () => {
                 <div className="section-card" id="print-dados-civis">
                   <div className="section-header-flex">
                     <h3 className="section-title"><User size={16} /> {t('profile.sections.civil')}</h3>
-                    <button className="btn-action-lite-text" onClick={() => printSection('1. Dados Civis', 'print-dados-civis')}>
-                      <Printer size={15} /> Imprimir
-                    </button>
+                    {canPrint && (
+                      <button className="btn-action-lite-text" onClick={() => printSection('1. Dados Civis', 'print-dados-civis')}>
+                        <Printer size={15} /> Imprimir
+                      </button>
+                    )}
                   </div>
                   <div className="form-grid-3">
 
@@ -1606,9 +1834,11 @@ const PerfilMissionario: React.FC = () => {
                   <div className="section-header-flex">
                     <h3 className="section-title"><MapPin size={16} /> 2. Contatos</h3>
                     <div style={{ display: 'flex', gap: '10px' }}>
+                    {canPrint && (
                       <button className="btn-action-lite-text" onClick={() => printSection('2. Contatos', 'print-contatos')}>
                         <Printer size={15} /> Imprimir
                       </button>
+                    )}
                       {canEdit && contatos.length < 3 && (
                         <button className="btn-action-lite-text" onClick={() => setContatos([...contatos, { parentesco: '', nome: '', endereco: '', telefone: '', email: '' }])}>
                           <Plus size={16} /> Adicionar Contato
@@ -1821,9 +2051,11 @@ const PerfilMissionario: React.FC = () => {
                 <div className="section-card" id="print-dados-religiosos">
                   <div className="section-header-flex">
                     <h3 className="section-title"><BookOpen size={16} /> {t('profile.sections.religious')}</h3>
-                    <button className="btn-action-lite-text" onClick={() => printSection('3. Dados Religiosos', 'print-dados-religiosos')}>
-                      <Printer size={15} /> Imprimir
-                    </button>
+                    {canPrint && (
+                      <button className="btn-action-lite-text" onClick={() => printSection('3. Dados Religiosos', 'print-dados-religiosos')}>
+                        <Printer size={15} /> Imprimir
+                      </button>
+                    )}
                   </div>
                   <div className="form-grid-3">
                     <div className="form-group"><label>Batismo</label><input type="date" value={religiososData.data_batismo} onChange={e => setReligiososData({ ...religiososData, data_batismo: e.target.value })} disabled={!canEdit} /></div>
@@ -1877,9 +2109,11 @@ const PerfilMissionario: React.FC = () => {
                 <div className="section-card" id="print-itinerario-41">
                   <div className="section-header-flex">
                     <h3 className="section-title"><Activity size={16} /> 4.1 Formação Inicial</h3>
-                    <button className="btn-action-lite-text" onClick={() => printSection('4.1 Formação Inicial', 'print-itinerario-41')}>
-                      <Printer size={15} /> Imprimir
-                    </button>
+                    {canPrint && (
+                      <button className="btn-action-lite-text" onClick={() => printSection('4.1 Formação Inicial', 'print-itinerario-41')}>
+                        <Printer size={15} /> Imprimir
+                      </button>
+                    )}
                   </div>
                   {renderItinSubItems([
                     { label: '4.1.1 Seminário Menor', etapaKey: '4.1.1' },
@@ -1900,9 +2134,11 @@ const PerfilMissionario: React.FC = () => {
                 <div className="section-card" id="print-itinerario-42">
                   <div className="section-header-flex">
                     <h3 className="section-title"><Activity size={16} /> 4.2 Vida Religiosa</h3>
-                    <button className="btn-action-lite-text" onClick={() => printSection('4.2 Vida Religiosa', 'print-itinerario-42')}>
-                      <Printer size={15} /> Imprimir
-                    </button>
+                    {canPrint && (
+                      <button className="btn-action-lite-text" onClick={() => printSection('4.2 Vida Religiosa', 'print-itinerario-42')}>
+                        <Printer size={15} /> Imprimir
+                      </button>
+                    )}
                   </div>
                   {renderItinSubItems([
                     { label: '4.2.1 Primeira Profissão', etapaKey: '4.2.1' },
@@ -1919,9 +2155,11 @@ const PerfilMissionario: React.FC = () => {
                 <div className="section-card" id="print-itinerario-43">
                   <div className="section-header-flex">
                     <h3 className="section-title"><Activity size={16} /> 4.3 Ministérios</h3>
-                    <button className="btn-action-lite-text" onClick={() => printSection('4.3 Ministérios', 'print-itinerario-43')}>
-                      <Printer size={15} /> Imprimir
-                    </button>
+                    {canPrint && (
+                      <button className="btn-action-lite-text" onClick={() => printSection('4.3 Ministérios', 'print-itinerario-43')}>
+                        <Printer size={15} /> Imprimir
+                      </button>
+                    )}
                   </div>
                   {renderItinSubItems([
                     { label: '4.3.1 Leitorado', etapaKey: '4.3.1' },
@@ -1939,9 +2177,11 @@ const PerfilMissionario: React.FC = () => {
                 <div className="section-card" id="print-itinerario-44">
                   <div className="section-header-flex">
                     <h3 className="section-title"><Activity size={16} /> 4.4 Destinação</h3>
-                    <button className="btn-action-lite-text" onClick={() => printSection('4.4 Destinação', 'print-itinerario-44')}>
-                      <Printer size={15} /> Imprimir
-                    </button>
+                    {canPrint && (
+                      <button className="btn-action-lite-text" onClick={() => printSection('4.4 Destinação', 'print-itinerario-44')}>
+                        <Printer size={15} /> Imprimir
+                      </button>
+                    )}
                   </div>
                   {renderItinSubItems([
                     { label: '4.4 Destinação', etapaKey: '4.4' },
@@ -1959,9 +2199,11 @@ const PerfilMissionario: React.FC = () => {
                   <div className="section-header-flex">
                     <h3 className="section-title"><GraduationCap size={16} /> 5. Formação Acadêmica</h3>
                     <div style={{ display: 'flex', gap: '10px' }}>
+                    {canPrint && (
                       <button className="btn-action-lite-text" onClick={() => printSection('5. Formação Acadêmica', 'print-formacao')}>
                         <Printer size={15} /> Imprimir
                       </button>
+                    )}
                       {canEdit && (
                         <button className="btn-action-lite-text" onClick={() => { setEditingFormacao(null); setTempForm({}); setShowAddForm('formacao'); }}>
                           <Plus size={14} /> Adicionar
@@ -2033,9 +2275,11 @@ const PerfilMissionario: React.FC = () => {
                   <div className="section-header-flex">
                     <h3 className="section-title"><MapPin size={16} /> 6. Atividade Missionária</h3>
                     <div style={{ display: 'flex', gap: '10px' }}>
+                    {canPrint && (
                       <button className="btn-action-lite-text" onClick={() => printSection('6. Atividade Missionária', 'print-atividade')}>
                         <Printer size={15} /> Imprimir
                       </button>
+                    )}
                       {canEdit && (
                         <button className="btn-action-lite-text" onClick={() => { setEditingAtividade(null); setTempForm({}); setShowAddForm('atividade'); }}>
                           <Plus size={14} /> Adicionar
@@ -2108,9 +2352,11 @@ const PerfilMissionario: React.FC = () => {
                   <div className="section-header-flex">
                     <h3 className="section-title"><Activity size={16} /> 7. Saúde</h3>
                     <div style={{ display: 'flex', gap: '10px' }}>
+                    {canPrint && (
                       <button className="btn-action-lite-text" onClick={() => printSection('7. Saúde', 'print-saude')}>
                         <Printer size={15} /> Imprimir
                       </button>
+                    )}
                       {canEdit && (
                         <button className="btn-action-lite-text" onClick={() => setShowAddForm('saude')}>
                           <Plus size={14} /> Adicionar Registro
@@ -2145,9 +2391,11 @@ const PerfilMissionario: React.FC = () => {
                 <div className="section-card" id="print-previdenciario">
                   <div className="section-header-flex">
                     <h3 className="section-title"><ShieldCheck size={16} /> 8. Previdenciário / IR</h3>
-                    <button className="btn-action-lite-text" onClick={() => printSection('8. Previdenciário / IR', 'print-previdenciario')}>
-                      <Printer size={15} /> Imprimir
-                    </button>
+                    {canPrint && (
+                      <button className="btn-action-lite-text" onClick={() => printSection('8. Previdenciário / IR', 'print-previdenciario')}>
+                        <Printer size={15} /> Imprimir
+                      </button>
+                    )}
                   </div>
                   <div className="form-group" style={{ maxWidth: '400px', marginTop: '15px' }}>
                     <label>NIT (Número de Identificação do Trabalhador)</label>
@@ -2167,9 +2415,11 @@ const PerfilMissionario: React.FC = () => {
                   <div className="section-header-flex">
                     <h3 className="section-title"><DollarSign size={16} /> 9. Contas Bancárias</h3>
                     <div style={{ display: 'flex', gap: '10px' }}>
+                    {canPrint && (
                       <button className="btn-action-lite-text" onClick={() => printSection('9. Contas Bancárias', 'print-banco')}>
                         <Printer size={15} /> Imprimir
                       </button>
+                    )}
                       {canEdit && <button className="btn-action-lite-text" onClick={() => setShowAddForm('banco')}><Plus size={14} /> Adicionar</button>}
                     </div>
                   </div>
@@ -2201,9 +2451,11 @@ const PerfilMissionario: React.FC = () => {
                   <div className="section-header-flex">
                     <h3 className="section-title"><Star size={16} /> 11. Obras Realizadas</h3>
                     <div style={{ display: 'flex', gap: '10px' }}>
+                    {canPrint && (
                       <button className="btn-action-lite-text" onClick={() => printSection('11. Obras Realizadas', 'print-obras')}>
                         <Printer size={15} /> Imprimir
                       </button>
+                    )}
                       {canEdit && <button className="btn-action-lite-text" onClick={() => setShowAddForm('obras')}><Plus size={14} /> Adicionar</button>}
                     </div>
                   </div>
@@ -2236,9 +2488,11 @@ const PerfilMissionario: React.FC = () => {
                   <div className="section-header-flex">
                     <h3 className="section-title"><FileText size={16} /> 12. Observações Gerais</h3>
                     <div style={{ display: 'flex', gap: '10px' }}>
+                    {canPrint && (
                       <button className="btn-action-lite-text" onClick={() => printSection('12. Observações Gerais', 'print-obs')}>
                         <Printer size={15} /> Imprimir
                       </button>
+                    )}
                       {canEdit && <button className="btn-save-perfil" onClick={() => setShowAddForm('obs')}><Plus size={16} /> Nova Obs</button>}
                     </div>
                   </div>
@@ -2267,9 +2521,11 @@ const PerfilMissionario: React.FC = () => {
                   <div className="section-header-flex">
                     <h3 className="section-title"><ShieldCheck size={16} /> 13. Quadro de Pessoal CV</h3>
                     <div style={{ display: 'flex', gap: '10px' }}>
+                    {canPrint && (
                       <button className="btn-action-lite-text" onClick={() => printSection('13. Quadro de Pessoal CV', 'print-quadro')}>
                         <Printer size={15} /> Imprimir
                       </button>
+                    )}
                       {canEdit && (
                         <button className="btn-action-lite-text" onClick={() => {
                           setTempForm({
@@ -2358,9 +2614,11 @@ const PerfilMissionario: React.FC = () => {
                 <div className="section-card" id="print-casas">
                   <div className="section-header-flex">
                     <h3 className="section-title"><HomeIcon size={16} /> Histórico de Presença</h3>
-                    <button className="btn-action-lite-text" onClick={() => printSection('Histórico de Presença Missionária', 'print-casas')}>
-                      <Printer size={15} /> Imprimir
-                    </button>
+                    {canPrint && (
+                      <button className="btn-action-lite-text" onClick={() => printSection('Histórico de Presença Missionária', 'print-casas')}>
+                        <Printer size={15} /> Imprimir
+                      </button>
+                    )}
                   </div>
                   <div className="casas-list">
                     {/* EXIBIR TODAS AS CASAS DO HISTÓRICO SEM O FILTRO RESTRITIVO DE FUNÇÃO */}

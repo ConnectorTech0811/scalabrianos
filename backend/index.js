@@ -178,6 +178,12 @@ async function ensureOptionalSchema() {
           { name: 'tipo', sql: "ALTER TABLE tb_missionario_casas ADD COLUMN tipo VARCHAR(20) DEFAULT NULL" },
           { name: 'pais', sql: "ALTER TABLE tb_missionario_casas ADD COLUMN pais VARCHAR(100) DEFAULT NULL" },
         ]
+      },
+      {
+        table: 'tb_dados_situacao',
+        columns: [
+          { name: 'egresso_transf_sacerdotes_path', sql: "ALTER TABLE tb_dados_situacao ADD COLUMN egresso_transf_sacerdotes_path VARCHAR(500) DEFAULT NULL" }
+        ]
       }
     ];
 
@@ -253,6 +259,7 @@ app.post('/api/login', async (req, res) => {
         nome: user.nome,
         email: user.login,
         role: user.role,
+        situacao: user.situacao,
         is_superior: !!user.is_superior,
         is_oconomo: !!user.is_oconomo,
         casa_id: casaId,
@@ -1493,10 +1500,13 @@ app.get('/api/usuarios/:id/atividade-missionaria', authenticateToken, async (req
 });
 
 app.post('/api/usuarios/:id/atividade-missionaria', authenticateToken, async (req, res) => {
-  const { periodo, lugar, missao, doc_path } = req.body;
+  const { periodo, lugar, missao, doc_path, funcao_atividade } = req.body;
   try {
-    await db.query('INSERT INTO tb_atividade_missionaria (usuario_id, periodo, lugar, missao, doc_path) VALUES (?, ?, ?, ?, ?)', 
-      [req.params.id, sanitizeString(periodo), sanitizeString(lugar), sanitizeString(missao), sanitizeString(doc_path)]);
+    try {
+      await db.query('ALTER TABLE tb_atividade_missionaria ADD COLUMN funcao_atividade TEXT');
+    } catch (_) {}
+    await db.query('INSERT INTO tb_atividade_missionaria (usuario_id, periodo, lugar, missao, doc_path, funcao_atividade) VALUES (?, ?, ?, ?, ?, ?)', 
+      [req.params.id, sanitizeString(periodo), sanitizeString(lugar), sanitizeString(missao), sanitizeString(doc_path), sanitizeString(funcao_atividade)]);
     res.json({ success: true });
   } catch (err) { 
     console.error('Error in atividade-missionaria:', err);
@@ -1657,6 +1667,7 @@ app.post('/api/usuarios/:id/situacao', authenticateToken, async (req, res) => {
   const {
     data_falecimento, cidade_falecimento, certidao_obito_path, local_sepultamento,
     egresso_incardinado_path, egresso_desistencia_path, egresso_laicizado_path,
+    egresso_transf_sacerdotes_path,
     egresso_transf_para_regiao_path, egresso_transf_da_regiao_path,
     exclaustrado_data, exclaustrado_processo
   } = req.body;
@@ -1669,6 +1680,7 @@ app.post('/api/usuarios/:id/situacao', authenticateToken, async (req, res) => {
         UPDATE tb_dados_situacao SET 
           data_falecimento = ?, cidade_falecimento = ?, certidao_obito_path = ?, local_sepultamento = ?,
           egresso_incardinado_path = ?, egresso_desistencia_path = ?, egresso_laicizado_path = ?,
+          egresso_transf_sacerdotes_path = ?,
           egresso_transf_para_regiao_path = ?, egresso_transf_da_regiao_path = ?,
           exclaustrado_data = ?, exclaustrado_processo = ?
         WHERE usuario_id = ?
@@ -1680,6 +1692,7 @@ app.post('/api/usuarios/:id/situacao', authenticateToken, async (req, res) => {
         sanitizeString(egresso_incardinado_path), 
         sanitizeString(egresso_desistencia_path), 
         sanitizeString(egresso_laicizado_path),
+        sanitizeString(egresso_transf_sacerdotes_path),
         sanitizeString(egresso_transf_para_regiao_path), 
         sanitizeString(egresso_transf_da_regiao_path),
         sanitizeDate(exclaustrado_data), 
@@ -1691,9 +1704,10 @@ app.post('/api/usuarios/:id/situacao', authenticateToken, async (req, res) => {
         INSERT INTO tb_dados_situacao (
           usuario_id, data_falecimento, cidade_falecimento, certidao_obito_path, local_sepultamento,
           egresso_incardinado_path, egresso_desistencia_path, egresso_laicizado_path,
+          egresso_transf_sacerdotes_path,
           egresso_transf_para_regiao_path, egresso_transf_da_regiao_path,
           exclaustrado_data, exclaustrado_processo
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
       `, [
         req.params.id, 
         sanitizeDate(data_falecimento), 
@@ -1703,6 +1717,7 @@ app.post('/api/usuarios/:id/situacao', authenticateToken, async (req, res) => {
         sanitizeString(egresso_incardinado_path), 
         sanitizeString(egresso_desistencia_path), 
         sanitizeString(egresso_laicizado_path),
+        sanitizeString(egresso_transf_sacerdotes_path),
         sanitizeString(egresso_transf_para_regiao_path), 
         sanitizeString(egresso_transf_da_regiao_path),
         sanitizeDate(exclaustrado_data), 
@@ -1714,6 +1729,42 @@ app.post('/api/usuarios/:id/situacao', authenticateToken, async (req, res) => {
     console.error('Error in situacao:', error);
     res.status(500).json({ message: error.message });
   }
+});
+
+// Upload de documento específico de situação
+app.post('/api/usuarios/:id/situacao/upload-doc', authenticateToken, (req, res) => {
+  upload.single('arquivo')(req, res, async (err) => {
+    if (err) return res.status(400).json({ message: err.message });
+    if (!req.file) return res.status(400).json({ message: 'Nenhum arquivo enviado' });
+
+    const campo = req.body.campo;
+    const allowedCampos = [
+      'certidao_obito_path',
+      'egresso_incardinado_path',
+      'egresso_desistencia_path',
+      'egresso_laicizado_path',
+      'egresso_transf_sacerdotes_path',
+      'egresso_transf_para_regiao_path',
+      'egresso_transf_da_regiao_path'
+    ];
+    if (!allowedCampos.includes(campo)) {
+      return res.status(400).json({ message: 'Campo inválido' });
+    }
+
+    const filePath = `/uploads/documentos/${req.file.filename}`;
+    try {
+      const [existing] = await db.query('SELECT id FROM tb_dados_situacao WHERE usuario_id = ?', [req.params.id]);
+      if (existing.length > 0) {
+        await db.query(`UPDATE tb_dados_situacao SET \`${campo}\` = ? WHERE usuario_id = ?`, [filePath, req.params.id]);
+      } else {
+        await db.query(`INSERT INTO tb_dados_situacao (usuario_id, \`${campo}\`) VALUES (?, ?)`, [req.params.id, filePath]);
+      }
+      res.json({ success: true, filePath, campo });
+    } catch (error) {
+      console.error('Error uploading situacao doc:', error);
+      res.status(500).json({ message: error.message });
+    }
+  });
 });
 
 app.get('/api/financas-casa/casa/:casa_id', authenticateToken, async (req, res) => {

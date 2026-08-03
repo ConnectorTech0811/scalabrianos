@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import {
   ChevronRight, ChevronLeft, User, MapPin, BookOpen, Lock, CheckCircle,
-  Home as HomeIcon, Plus, Trash2, FileText, Image as ImageIcon, Star,
+  Home as HomeIcon, Plus, Trash2, FileText, Image as ImageIcon,
   Activity, Users, Search, Filter, Eye, X, Loader2, AlertCircle,
   GraduationCap, DollarSign, Save, ShieldCheck, EyeOff
 } from 'lucide-react';
@@ -58,7 +58,13 @@ interface WizardData {
   pais: string;
   cidade_estado: string;
   diocese: string;
-  situacao: 'ATIVO' | 'FALECIDO' | 'EGRESSO' | 'EXCLAUSTRADO';
+  rnm: string;
+  cpf: string;
+  titulo_eleitor: string;
+  cnh: string;
+  passaporte: string;
+  situacao: string;
+
   // Step 2 - Endereços
   logradouro: string;
   complemento: string;
@@ -68,6 +74,7 @@ interface WizardData {
   celular_whatsapp: string;
   telefone_fixo: string;
   email_pessoal: string;
+
   // Step 3 - Dados Religiosos
   primeiros_votos_data: string;
   votos_perpetuos_data: string;
@@ -77,31 +84,51 @@ interface WizardData {
   bispo_ordenante: string;
   is_oconomo: boolean;
   is_superior: boolean;
+
   // Sacramentos
   data_batismo: string;
   data_primeira_comunhao: string;
   data_crisma: string;
-  // Step 5 - Acesso
-  login: string;
-  password: string;
-  status: 'ATIVO' | 'INATIVO';
-  // Additional Step 1
+
+  // Step 4 - Itinerário & Nacionalidades
   nacionalidades: string[];
   itinerario: ItineraryStage[];
-  // Training
+
+  // Step 5 - Formação Acadêmica
   formacao_curso: string;
   formacao_instituicao: string;
   formacao_periodo: string;
-  // Health
+  formacao_observacoes: string;
+
+  // Step 6 - Atividade Missionária
+  atividade_lugar: string;
+  atividade_periodo: string;
+  atividade_missao: string;
+  atividade_funcoes: string[];
+  atividade_funcoes_outros: string;
+
+  // Step 7 - Saúde & Previdenciário
   saude_sus: string;
   saude_seguradora: string;
   saude_carteira: string;
-  // Finance
   nit: string;
+
+  // Step 8 - Contas, Obras, Obs & Quadro
   banco_tipo: string;
   banco_titular: string;
   banco_agencia: string;
   banco_numero: string;
+  obra_periodo: string;
+  obra_lugar: string;
+  obra_descricao: string;
+  obs_geral: string;
+  quadro_funcao_atual: string;
+  quadro_competencias: string;
+
+  // Step 9 & 10 - Acesso & Permissões
+  login: string;
+  password: string;
+  status: 'ATIVO' | 'INATIVO';
   permissoes: Record<string, boolean>;
 }
 
@@ -114,7 +141,8 @@ interface ItineraryStage {
 
 const initialWizard: WizardData = {
   nome: '', data_nascimento: '', nome_pai: '', nome_mae: '', naturalidade: '', pais: 'Brasil',
-  cidade_estado: '', diocese: '', situacao: 'ATIVO',
+  cidade_estado: '', diocese: '', situacao: 'Ativo',
+  rnm: '', cpf: '', titulo_eleitor: '', cnh: '', passaporte: '',
   logradouro: '', complemento: '', bairro: '', cep: '', endereco_cidade_estado: '',
   celular_whatsapp: '', telefone_fixo: '', email_pessoal: '',
   primeiros_votos_data: '', votos_perpetuos_data: '', lugar_profissao: '',
@@ -124,15 +152,17 @@ const initialWizard: WizardData = {
   login: '', password: '', status: 'ATIVO',
   nacionalidades: ['Brasileira'],
   itinerario: [
-    { etapa: 'SEMINARIO', is_sub_etapa: false, local: '', periodo: '' },
-    { etapa: 'SEMINARIO', is_sub_etapa: true, local: '', periodo: '' },
-    { etapa: 'PROPEDEUTICO', is_sub_etapa: true, local: '', periodo: '' },
-    { etapa: 'FILOSOFIA', is_sub_etapa: true, local: '', periodo: '' },
-    { etapa: 'POSTULADO', is_sub_etapa: true, local: '', periodo: '' },
+    { etapa: '4.1.1', is_sub_etapa: true, local: '', periodo: '' },
+    { etapa: '4.1.2', is_sub_etapa: true, local: '', periodo: '' },
+    { etapa: '4.1.3', is_sub_etapa: true, local: '', periodo: '' },
+    { etapa: '4.1.4', is_sub_etapa: true, local: '', periodo: '' },
   ],
-  formacao_curso: '', formacao_instituicao: '', formacao_periodo: '',
+  formacao_curso: '', formacao_instituicao: '', formacao_periodo: '', formacao_observacoes: '',
+  atividade_lugar: '', atividade_periodo: '', atividade_missao: '', atividade_funcoes: [], atividade_funcoes_outros: '',
   saude_sus: '', saude_seguradora: '', saude_carteira: '',
   nit: '', banco_tipo: '', banco_titular: '', banco_agencia: '', banco_numero: '',
+  obra_periodo: '', obra_lugar: '', obra_descricao: '', obs_geral: '',
+  quadro_funcao_atual: '', quadro_competencias: '',
   permissoes: {}
 };
 
@@ -240,16 +270,18 @@ const Missionarios: React.FC = () => {
   const [saveLoading, setSaveLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
 
-  // Steps definition updated with translation
+  // Steps definition matching profile sections
   const STEPS = [
-    { label: '1. Dados Civis', icon: <User size={15} /> },
+    { label: '0. Situação & 1. Civis', icon: <User size={15} /> },
     { label: '2. Contatos', icon: <MapPin size={15} /> },
     { label: '3. Dados Religiosos', icon: <BookOpen size={15} /> },
-    { label: '4. Itinerário', icon: <Activity size={15} /> },
-    { label: '5. Formação & Missão', icon: <GraduationCap size={15} /> },
-    { label: '6. Saúde & Financeiro', icon: <ShieldCheck size={15} /> },
+    { label: '4. Itinerário Formativo', icon: <Activity size={15} /> },
+    { label: '5. Formação Acadêmica', icon: <GraduationCap size={15} /> },
+    { label: '6. Atividade Missionária', icon: <MapPin size={15} /> },
+    { label: '7. Saúde & 8. Previdenciário', icon: <ShieldCheck size={15} /> },
+    { label: '9. Contas & 11-13. Outros', icon: <DollarSign size={15} /> },
     { label: 'Presença Missionária', icon: <HomeIcon size={15} /> },
-    { label: '8. Acesso', icon: <Lock size={15} /> },
+    { label: 'Acesso & Permissões', icon: <Lock size={15} /> },
   ];
 
   // Step 1 — dynamic docs (local, uploaded after user created)
@@ -271,6 +303,8 @@ const Missionarios: React.FC = () => {
   const [formacaoDocFile, setFormacaoDocFile] = useState<File | null>(null);
   const saudeFileRef = useRef<HTMLInputElement>(null);
   const [saudeDocFile, setSaudeDocFile] = useState<File | null>(null);
+  const quadroFileRef = useRef<HTMLInputElement>(null);
+  const [quadroCvFile, setQuadroCvFile] = useState<File | null>(null);
   const itinStepFileRef = useRef<HTMLInputElement>(null);
   const [itineraryDocs, setItineraryDocs] = useState<{ file: File, stage: string }[]>([]);
   const [itinSelectedStage, setItinSelectedStage] = useState('');
@@ -284,7 +318,6 @@ const Missionarios: React.FC = () => {
   const [paisFilter, setPaisFilter] = useState('');
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 12;
-
 
   useEffect(() => { fetchMissionarios(); }, []);
 
@@ -311,6 +344,7 @@ const Missionarios: React.FC = () => {
     setDocs([]);
     setFormacaoDocFile(null);
     setSaudeDocFile(null);
+    setQuadroCvFile(null);
     setItineraryDocs([]);
     setItinSelectedStage('');
     setCasasVinculos([]);
@@ -384,7 +418,6 @@ const Missionarios: React.FC = () => {
   const addCasaVinculo = () => {
     if (!novaCasa.casa_id) { alert('Selecione uma casa'); return; }
     if (!novaCasa.data_inicio) { alert('Informe a data de início'); return; }
-    // Check max 5 years (keep validation but parse as local date)
     const ini = parseDateLocal(novaCasa.data_inicio);
     if (ini) {
       const maxDate = new Date(ini);
@@ -406,18 +439,21 @@ const Missionarios: React.FC = () => {
     });
   };
 
-  // ── Finish ──
+  // ── Finish & Save All Wizard Data ──
   const handleFinish = async () => {
-    if (!wizardData.login) {
+    if (!wizardData.nome.trim()) {
+      alert('Informe o nome do missionário.');
+      return;
+    }
+    if (!wizardData.login.trim()) {
       alert('Informe o e-mail de login.');
       return;
     }
     const effectivePassword = wizardData.password?.trim() || 'Scalab@10';
     setSaveLoading(true);
     try {
-      // Auto-resolve global boolean flags based on presence functions
-      const hasOconomoLocal = casasVinculos.some(v => Array.isArray(v.funcao) ? v.funcao.includes('Ecônomo Local') : String(v.funcao).includes('Ecônomo Local'));
-      const hasSuperiorLocal = casasVinculos.some(v => v.is_superior || (Array.isArray(v.funcao) ? v.funcao.includes('Superior Local') : String(v.funcao).includes('Superior Local')));
+      const hasOconomoLocal = (wizardData.atividade_funcoes || []).includes('Ecônomo Local');
+      const hasSuperiorLocal = (wizardData.atividade_funcoes || []).includes('Superior Local');
       
       const effectiveIsOconomo = wizardData.is_oconomo || hasOconomoLocal;
       const effectiveIsSuperior = wizardData.is_superior || hasSuperiorLocal;
@@ -431,7 +467,6 @@ const Missionarios: React.FC = () => {
       });
       const newId = userRes.data.id;
 
-
       // 2 — Civil data
       const fullFiliacao = `${wizardData.nome_pai || ''} / ${wizardData.nome_mae || ''}`.trim();
       await api.post(`/usuarios/${newId}/dados-civis`, {
@@ -439,11 +474,12 @@ const Missionarios: React.FC = () => {
         filiacao: fullFiliacao === '/' ? '' : fullFiliacao,
         cidade_estado: wizardData.cidade_estado, diocese: wizardData.diocese,
         pais: wizardData.pais, naturalidade: wizardData.naturalidade,
-        rnm: '', cpf: '', titulo_eleitor: '', cnh: '', passaporte: '',
-        nit: wizardData.nit
+        rnm: wizardData.rnm || '', cpf: wizardData.cpf || '',
+        titulo_eleitor: wizardData.titulo_eleitor || '', cnh: wizardData.cnh || '',
+        passaporte: wizardData.passaporte || '', nit: wizardData.nit || ''
       });
 
-      // 3 — Address
+      // 3 — Address & Contact
       await api.post(`/usuarios/${newId}/endereco-contato`, {
         logradouro: wizardData.logradouro, complemento: wizardData.complemento,
         bairro: wizardData.bairro, cep: wizardData.cep,
@@ -465,50 +501,51 @@ const Missionarios: React.FC = () => {
         data_crisma: wizardData.data_crisma || null,
       });
 
-      if (batismoDocFile) {
-        await uploadSacramentoFile(newId, 'doc_batismo', batismoDocFile);
-      }
-      if (comunhaoDocFile) {
-        await uploadSacramentoFile(newId, 'doc_primeira_comunhao', comunhaoDocFile);
-      }
-      if (crismaDocFile) {
-        await uploadSacramentoFile(newId, 'doc_crisma', crismaDocFile);
-      }
+      if (batismoDocFile) await uploadSacramentoFile(newId, 'doc_batismo', batismoDocFile);
+      if (comunhaoDocFile) await uploadSacramentoFile(newId, 'doc_primeira_comunhao', comunhaoDocFile);
+      if (crismaDocFile) await uploadSacramentoFile(newId, 'doc_crisma', crismaDocFile);
 
       // 5 — Casa vinculos
       for (const v of casasVinculos) {
-        const funcaoPayload = Array.isArray(v.funcao) ? v.funcao.join(',') : (v.funcao ? String(v.funcao) : (v.is_superior ? 'Superior Local' : ''));
         await api.post(`/usuarios/${newId}/casas-historico`, {
           casa_id: v.casa_id, data_inicio: v.data_inicio, data_fim: null,
-          funcao: funcaoPayload,
-          is_superior: v.is_superior,
-          pm: v.pm || null,
-          tipo: v.tipo || null,
-          pais: v.pais || null,
+          funcao: '', is_superior: false,
+          pm: v.pm || null, tipo: v.tipo || null, pais: v.pais || null,
         });
       }
 
       // 6 — Nacionalidades
-      await api.post(`/usuarios/${newId}/nacionalidades`, {
-        nacionalidades: wizardData.nacionalidades
-      });
+      await api.post(`/usuarios/${newId}/nacionalidades`, { nacionalidades: wizardData.nacionalidades });
 
-      // 6.5 — Itinerário
-      await api.post(`/usuarios/${newId}/itinerario`, {
-        stages: wizardData.itinerario
-      });
+      // 7 — Itinerário
+      await api.post(`/usuarios/${newId}/itinerario`, { stages: wizardData.itinerario });
 
-      // 6.6 — Formação Acadêmica (if provided)
-      if (wizardData.formacao_curso) {
+      // 8 — Formação Acadêmica
+      if (wizardData.formacao_curso || wizardData.formacao_instituicao) {
         await api.post(`/usuarios/${newId}/formacao-academica`, {
           curso: wizardData.formacao_curso,
           faculdade: wizardData.formacao_instituicao,
-          periodo: wizardData.formacao_periodo
+          periodo: wizardData.formacao_periodo,
+          observacoes: wizardData.formacao_observacoes
         });
       }
 
-      // 6.7 — Saúde (if provided)
-      if (wizardData.saude_sus || wizardData.saude_seguradora) {
+      // 9 — Atividade Missionária (with role checkboxes & Outros)
+      if (wizardData.atividade_lugar || (wizardData.atividade_funcoes && wizardData.atividade_funcoes.length > 0)) {
+        let funs = [...(wizardData.atividade_funcoes || [])];
+        if (funs.includes('Outros') && wizardData.atividade_funcoes_outros?.trim()) {
+          funs = funs.map(f => f === 'Outros' ? `Outros: ${wizardData.atividade_funcoes_outros.trim()}` : f);
+        }
+        await api.post(`/usuarios/${newId}/atividade-missionaria`, {
+          lugar: wizardData.atividade_lugar,
+          periodo: wizardData.atividade_periodo,
+          missao: wizardData.atividade_missao,
+          funcao_atividade: funs.join(', ')
+        });
+      }
+
+      // 10 — Saúde
+      if (wizardData.saude_sus || wizardData.saude_seguradora || wizardData.saude_carteira) {
         await api.post(`/usuarios/${newId}/saude`, {
           sus_card: wizardData.saude_sus,
           seguradora: wizardData.saude_seguradora,
@@ -516,8 +553,8 @@ const Missionarios: React.FC = () => {
         });
       }
 
-      // 6.8 — Contas Bancárias (if provided)
-      if (wizardData.banco_numero) {
+      // 11 — Contas Bancárias
+      if (wizardData.banco_numero || wizardData.banco_agencia) {
         await api.post(`/usuarios/${newId}/contas-bancarias`, {
           tipo_confirmacao: wizardData.banco_tipo,
           tipo_conta: wizardData.banco_tipo,
@@ -527,15 +564,31 @@ const Missionarios: React.FC = () => {
         });
       }
 
-      // 6.9 — NIT (already handled in step 2 technically, but let's be sure if we added a specific field)
-      if (wizardData.nit) {
-        // NIT is usually in dados-civis, we already sent it above? 
-        // Let's check step 2. Wait, I should add NIT to the dados-civis update.
-        // I'll update the dados-civis call above.
+      // 12 — Obras Realizadas
+      if (wizardData.obra_lugar || wizardData.obra_descricao) {
+        await api.post(`/usuarios/${newId}/obras-realizadas`, {
+          periodo: wizardData.obra_periodo,
+          lugar: wizardData.obra_lugar,
+          obra: wizardData.obra_descricao
+        });
       }
 
-      // 7 — Documentos (uploaded after user creation)
-      // Standard docs from step 1
+      // 13 — Observações Gerais
+      if (wizardData.obs_geral) {
+        await api.post(`/usuarios/${newId}/observacoes-gerais`, {
+          texto: wizardData.obs_geral
+        });
+      }
+
+      // 14 — Quadro de Pessoal CV
+      if (wizardData.quadro_funcao_atual || wizardData.quadro_competencias) {
+        await api.post(`/usuarios/${newId}/quadro-pessoal`, {
+          funcao_atual: wizardData.quadro_funcao_atual,
+          competencias: wizardData.quadro_competencias
+        });
+      }
+
+      // 15 — Uploads
       for (const doc of docs) {
         if (!doc.file) continue;
         const fd = new FormData();
@@ -546,7 +599,6 @@ const Missionarios: React.FC = () => {
         });
       }
 
-      // Step 4 Doc (Formação)
       if (formacaoDocFile) {
         const fd = new FormData();
         fd.append('arquivo', formacaoDocFile);
@@ -556,7 +608,6 @@ const Missionarios: React.FC = () => {
         });
       }
 
-      // Step 5 Doc (Saúde)
       if (saudeDocFile) {
         const fd = new FormData();
         fd.append('arquivo', saudeDocFile);
@@ -566,7 +617,15 @@ const Missionarios: React.FC = () => {
         });
       }
 
-      // Itinerário Step Docs
+      if (quadroCvFile) {
+        const fd = new FormData();
+        fd.append('arquivo', quadroCvFile);
+        fd.append('descricao', 'CV - Quadro de Pessoal');
+        await api.post(`/usuarios/${newId}/documentos`, fd, {
+          headers: { 'Content-Type': 'multipart/form-data' },
+        });
+      }
+
       for (const idoc of itineraryDocs) {
         const fd = new FormData();
         fd.append('arquivo', idoc.file);
@@ -786,12 +845,12 @@ const Missionarios: React.FC = () => {
             {/* ── body ── */}
             <div className="wizard-body">
 
-              {/* ══ STEP 1 — Dados Civis ══ */}
+              {/* ══ STEP 0 — Situação & 1. Dados Civis ══ */}
               {wizardStep === 0 && (
                 <div className="wizard-step-content">
-                  <div className="wizard-divider">1. Dados Civis</div>
+                  <div className="wizard-divider">0. Situação & 1. Dados Civis</div>
                   <div className="form-group full">
-                    <label>{t('missionaries.wizard.civil.full_name')}</label>
+                    <label>{t('missionaries.wizard.civil.full_name')} *</label>
                     <input type="text" value={wizardData.nome} onChange={e => set('nome', e.target.value)} placeholder="Nome completo..." />
                   </div>
                   <div className="form-row-2">
@@ -800,12 +859,12 @@ const Missionarios: React.FC = () => {
                       <input type="date" value={wizardData.data_nascimento} onChange={e => set('data_nascimento', e.target.value)} />
                     </div>
                     <div className="form-group">
-                      <label>{t('missionaries.wizard.civil.situation')}</label>
+                      <label>0. Situação do Missionário</label>
                       <select value={wizardData.situacao} onChange={e => set('situacao', e.target.value)}>
-                        <option value="ATIVO">{t('missionaries.situations.ativo', 'Ativo')}</option>
-                        <option value="FALECIDO">{t('missionaries.situations.falecido', 'Falecido')}</option>
-                        <option value="EGRESSO">{t('missionaries.situations.egresso', 'Egresso')}</option>
-                        <option value="EXCLAUSTRADO">{t('missionaries.situations.exclaustrado', 'Exclaustrado')}</option>
+                        <option value="Ativo">Ativo</option>
+                        <option value="Egresso">Egresso</option>
+                        <option value="Falecido">Falecido</option>
+                        <option value="Exclaustrado">Exclaustrado</option>
                       </select>
                     </div>
                   </div>
@@ -845,7 +904,19 @@ const Missionarios: React.FC = () => {
                     </div>
                   </div>
 
-                  <div className="wizard-divider" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                  {/* Documentos de Identificação Civil */}
+                  <div className="wizard-divider" style={{ marginTop: '12px' }}>Documentos Civis</div>
+                  <div className="form-row-3">
+                    <div className="form-group"><label>RG / RNM / CI / DI</label><input type="text" maxLength={10} value={wizardData.rnm} onChange={e => set('rnm', e.target.value.replace(/\D/g, '').slice(0, 10))} placeholder="000000000" /></div>
+                    <div className="form-group"><label>CPF</label><input type="text" maxLength={11} value={wizardData.cpf} onChange={e => set('cpf', e.target.value.replace(/\D/g, '').slice(0, 11))} placeholder="00000000000" /></div>
+                    <div className="form-group"><label>Título Eleitor</label><input type="text" maxLength={12} value={wizardData.titulo_eleitor} onChange={e => set('titulo_eleitor', e.target.value.replace(/\D/g, '').slice(0, 12))} placeholder="000000000000" /></div>
+                  </div>
+                  <div className="form-row-2">
+                    <div className="form-group"><label>CNH</label><input type="text" maxLength={11} value={wizardData.cnh} onChange={e => set('cnh', e.target.value.replace(/\D/g, '').slice(0, 11))} placeholder="00000000000" /></div>
+                    <div className="form-group"><label>Passaporte</label><input type="text" maxLength={9} value={wizardData.passaporte} onChange={e => set('passaporte', e.target.value.toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 9))} placeholder="AA000000" style={{ fontFamily: 'monospace', letterSpacing: '1px' }} /></div>
+                  </div>
+
+                  <div className="wizard-divider" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '12px' }}>
                     {t('missionaries.wizard.civil.nationalities')}
                     <button
                       className="btn-add-doc"
@@ -855,7 +926,7 @@ const Missionarios: React.FC = () => {
                       <Plus size={12} /> {t('missionaries.wizard.civil.add_btn')}
                     </button>
                   </div>
-                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '10px', alignItems: 'start' }}>
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '10px', alignItems: 'start' }}>
                     {wizardData.nacionalidades.map((nac, idx) => (
                       <div key={idx} style={{ display: 'flex', gap: '5px' }}>
                         <input
@@ -882,7 +953,7 @@ const Missionarios: React.FC = () => {
                   </div>
 
                   {/* ── Dynamic Document Upload ── */}
-                  <div className="wizard-divider">{t('missionaries.wizard.docs.title')}</div>
+                  <div className="wizard-divider" style={{ marginTop: '14px' }}>{t('missionaries.wizard.docs.title')}</div>
                   <p className="wizard-hint" style={{ marginBottom: 0 }}>
                     {t('missionaries.wizard.docs.hint')}
                   </p>
@@ -940,7 +1011,7 @@ const Missionarios: React.FC = () => {
                 </div>
               )}
 
-              {/* ══ STEP 2 — Endereço ══ */}
+              {/* ══ STEP 1 — Endereço & Contatos ══ */}
               {wizardStep === 1 && (
                 <div className="wizard-step-content">
                   <div className="wizard-divider">2. Contatos</div>
@@ -980,24 +1051,50 @@ const Missionarios: React.FC = () => {
                 </div>
               )}
 
-              {/* ══ STEP 3 — Dados Religiosos ══ */}
+              {/* ══ STEP 2 — Dados Religiosos ══ */}
               {wizardStep === 2 && (
                 <div className="wizard-step-content">
                   <div className="wizard-divider">3. Dados Religiosos</div>
 
-                  {/* ── Sacramentos ── */}
-                  <div className="wizard-divider" style={{ fontSize: '0.78rem', marginBottom: '8px' }}>Informações Religiosas</div>
                   <div className="form-row-2" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '14px', marginBottom: '10px' }}>
                     <div className="form-group">
-                      <label>Batismo</label>
+                      <label>Batismo (Data)</label>
                       <input type="date" value={wizardData.data_batismo} onChange={e => set('data_batismo', e.target.value)} />
                     </div>
                     <div className="form-group">
-                      <label>Crisma</label>
+                      <label>Crisma (Data)</label>
                       <input type="date" value={wizardData.data_crisma} onChange={e => set('data_crisma', e.target.value)} />
                     </div>
                   </div>
 
+                  <div className="form-row-2" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '14px', marginBottom: '14px' }}>
+                    <div className="form-group">
+                      <label>Primeiros Votos (Data)</label>
+                      <input type="date" value={wizardData.primeiros_votos_data} onChange={e => set('primeiros_votos_data', e.target.value)} />
+                    </div>
+                    <div className="form-group">
+                      <label>Votos Perpétuos (Data)</label>
+                      <input type="date" value={wizardData.votos_perpetuos_data} onChange={e => set('votos_perpetuos_data', e.target.value)} />
+                    </div>
+                  </div>
+
+                  <div className="form-row-2" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '14px', marginBottom: '14px' }}>
+                    <div className="form-group">
+                      <label>Diaconato (Data)</label>
+                      <input type="date" value={wizardData.diaconato_data} onChange={e => set('diaconato_data', e.target.value)} />
+                    </div>
+                    <div className="form-group">
+                      <label>Presbiterato (Data)</label>
+                      <input type="date" value={wizardData.presbiterato_data} onChange={e => set('presbiterato_data', e.target.value)} />
+                    </div>
+                  </div>
+
+                  <div className="form-group full">
+                    <label>Bispo Ordenante</label>
+                    <input type="text" value={wizardData.bispo_ordenante} onChange={e => set('bispo_ordenante', e.target.value)} placeholder="Nome do Bispo ordenante..." />
+                  </div>
+
+                  <div className="wizard-divider" style={{ marginTop: '12px' }}>Anexar Certidões</div>
                   <div className="form-row-2" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '14px', marginBottom: '10px' }}>
                     <div className="form-group">
                       <label>Certidão de Batismo</label>
@@ -1010,13 +1107,10 @@ const Missionarios: React.FC = () => {
                       {crismaDocFile && <span className="file-selected">{crismaDocFile.name}</span>}
                     </div>
                   </div>
-                  <p style={{ fontSize: '0.78rem', color: '#888', marginBottom: '16px' }}>
-                    Os documentos dos sacramentos podem ser anexados agora ou após o cadastro, na aba <strong>Dados Religiosos</strong> do perfil do missionário.
-                  </p>
                 </div>
               )}
 
-              {/* ══ STEP Itinerário ══ */}
+              {/* ══ STEP 3 — Itinerário Formativo ══ */}
               {wizardStep === 3 && (
                 <div className="wizard-step-content">
                   <div className="wizard-divider">4. Itinerário Formativo</div>
@@ -1024,19 +1118,25 @@ const Missionarios: React.FC = () => {
 
                   <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '14px' }}>
                     {[
-                      { label: '4.1 Seminário (geral)', etapa: 'SEMINARIO', isSub: false },
-                      { label: '4.1.1 Seminário Menor', etapa: 'SEMINARIO', isSub: true },
-                      { label: '4.1.2 Propedêutico', etapa: 'PROPEDEUTICO', isSub: true },
-                      { label: '4.1.3 Filosofia', etapa: 'FILOSOFIA', isSub: true },
-                      { label: '4.1.4 Postulado', etapa: 'POSTULADO', isSub: true },
-                      { label: '4.1.5 Noviciado', etapa: 'NOVICIADO', isSub: true },
-                      { label: '4.1.6 Teologia', etapa: 'TEOLOGIA', isSub: true },
-                      { label: '4.1.7 Tirocínio', etapa: 'TIROCINIMO', isSub: true },
+                      { label: '4.1.1 Seminário Menor', etapa: '4.1.1' },
+                      { label: '4.1.2 Propedêutico', etapa: '4.1.2' },
+                      { label: '4.1.3 Filosofia', etapa: '4.1.3' },
+                      { label: '4.1.4 Postulado', etapa: '4.1.4' },
+                      { label: '4.1.5 Noviciado', etapa: '4.1.5' },
+                      { label: '4.1.6 Teologia', etapa: '4.1.6' },
+                      { label: '4.1.7 Tirocínio', etapa: '4.1.7' },
+                      { label: '4.2.1 Primeira Profissão', etapa: '4.2.1' },
+                      { label: '4.2.2 Renovação Votos', etapa: '4.2.2' },
+                      { label: '4.2.3 Profissão Perpétua', etapa: '4.2.3' },
+                      { label: '4.3.1 Leitorato', etapa: '4.3.1' },
+                      { label: '4.3.2 Acolitado', etapa: '4.3.2' },
+                      { label: '4.3.3 Diaconato', etapa: '4.3.3' },
+                      { label: '4.3.4 Presbiterato', etapa: '4.3.4' },
                     ].map((seg, idx) => {
-                      const stage = wizardData.itinerario.find(s => s.etapa === seg.etapa && s.is_sub_etapa === seg.isSub) || { etapa: seg.etapa, is_sub_etapa: seg.isSub, local: '', periodo: '' };
+                      const stage = wizardData.itinerario.find(s => s.etapa === seg.etapa) || { etapa: seg.etapa, is_sub_etapa: true, local: '', periodo: '' };
                       const updateStage = (field: 'local' | 'periodo', val: string) => {
                         const newItin = [...wizardData.itinerario];
-                        let ti = newItin.findIndex(s => s.etapa === seg.etapa && s.is_sub_etapa === seg.isSub);
+                        let ti = newItin.findIndex(s => s.etapa === seg.etapa);
                         if (ti > -1) {
                           newItin[ti] = { ...newItin[ti], [field]: val };
                         } else {
@@ -1045,16 +1145,14 @@ const Missionarios: React.FC = () => {
                         set('itinerario', newItin);
                       };
                       return (
-                        <div key={idx} style={{ padding: '12px', border: '1px solid #e8f0fb', borderRadius: '10px', background: '#f9fbff', borderLeft: '3px solid #4a90e2' }}>
-                          <div style={{ fontWeight: 700, fontSize: '0.8rem', color: 'var(--primary)', marginBottom: '8px' }}>{seg.label}</div>
+                        <div key={idx} style={{ padding: '10px 12px', border: '1px solid #e2e8f0', borderRadius: '8px', background: '#fafafa' }}>
+                          <div style={{ fontWeight: 700, fontSize: '0.78rem', color: '#013375', marginBottom: '6px' }}>{seg.label}</div>
                           <div style={{ display: 'flex', gap: '8px' }}>
                             <div className="form-group" style={{ flex: 1 }}>
-                              <label style={{ fontSize: '0.72rem' }}>Local</label>
-                              <input type="text" value={stage.local} onChange={e => updateStage('local', e.target.value)} placeholder="Local..." />
+                              <input type="text" value={stage.periodo} onChange={e => updateStage('periodo', e.target.value)} placeholder="Período (ex: 1990-1994)" style={{ fontSize: '0.78rem' }} />
                             </div>
-                            <div className="form-group" style={{ flex: 1 }}>
-                              <label style={{ fontSize: '0.72rem' }}>Período</label>
-                              <input type="text" value={stage.periodo} onChange={e => updateStage('periodo', e.target.value)} placeholder="Ex: 2020-2022" />
+                            <div className="form-group" style={{ flex: 2 }}>
+                              <input type="text" value={stage.local} onChange={e => updateStage('local', e.target.value)} placeholder="Local / Instituição" style={{ fontSize: '0.78rem' }} />
                             </div>
                           </div>
                         </div>
@@ -1062,81 +1160,7 @@ const Missionarios: React.FC = () => {
                     })}
                   </div>
 
-                  <div className="wizard-divider" style={{ marginTop: '8px' }}>4.2 Vida Religiosa</div>
-                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '14px' }}>
-                    {[
-                      { label: '4.2.1 Primeira Profissão', etapa: 'PRIMEIRA_PROFISSAO', isSub: true },
-                      { label: 'Renovação de Votos', etapa: 'RENOVACAO_VOTOS', isSub: true },
-                      { label: '4.2.2 Profissão Perpetúa', etapa: 'PROFISSAO_PERPETUA', isSub: true },
-                      { label: '4.2.3 Diaconato', etapa: 'DIACONATO', isSub: true },
-                      { label: '4.2.4 Presbiterato', etapa: 'PRESBITERATO', isSub: true },
-                    ].map((seg, idx) => {
-                      const stage = wizardData.itinerario.find(s => s.etapa === seg.etapa && s.is_sub_etapa === seg.isSub) || { etapa: seg.etapa, is_sub_etapa: seg.isSub, local: '', periodo: '' };
-                      const updateStage = (field: 'local' | 'periodo', val: string) => {
-                        const newItin = [...wizardData.itinerario];
-                        let ti = newItin.findIndex(s => s.etapa === seg.etapa && s.is_sub_etapa === seg.isSub);
-                        if (ti > -1) {
-                          newItin[ti] = { ...newItin[ti], [field]: val };
-                        } else {
-                          newItin.push({ ...stage, [field]: val });
-                        }
-                        set('itinerario', newItin);
-                      };
-                      return (
-                        <div key={idx} style={{ padding: '12px', border: '1px solid #e8f5e9', borderRadius: '10px', background: '#f9fff9', borderLeft: '3px solid #4caf50' }}>
-                          <div style={{ fontWeight: 700, fontSize: '0.8rem', color: '#2e7d32', marginBottom: '8px' }}>{seg.label}</div>
-                          <div style={{ display: 'flex', gap: '8px' }}>
-                            <div className="form-group" style={{ flex: 1 }}>
-                              <label style={{ fontSize: '0.72rem' }}>Local</label>
-                              <input type="text" value={stage.local} onChange={e => updateStage('local', e.target.value)} placeholder="Local..." />
-                            </div>
-                            <div className="form-group" style={{ flex: 1 }}>
-                              <label style={{ fontSize: '0.72rem' }}>Período</label>
-                              <input type="text" value={stage.periodo} onChange={e => updateStage('periodo', e.target.value)} placeholder="Ex: 2020-2022" />
-                            </div>
-                          </div>
-                        </div>
-                      );
-                    })}
-                  </div>
-
-                  <div className="wizard-divider" style={{ marginTop: '8px' }}>4.3 Ministérios</div>
-                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '14px' }}>
-                    {[
-                      { label: '4.3.1 Leitorato', etapa: 'LEITORATO', isSub: true },
-                      { label: '4.3.2 Acolitato', etapa: 'ACOLITATO', isSub: true },
-                      { label: '4.3.3 Ministro de Eucalistia', etapa: 'MINISTRO_EUCARISTIA', isSub: true },
-                    ].map((seg, idx) => {
-                      const stage = wizardData.itinerario.find(s => s.etapa === seg.etapa && s.is_sub_etapa === seg.isSub) || { etapa: seg.etapa, is_sub_etapa: seg.isSub, local: '', periodo: '' };
-                      const updateStage = (field: 'local' | 'periodo', val: string) => {
-                        const newItin = [...wizardData.itinerario];
-                        let ti = newItin.findIndex(s => s.etapa === seg.etapa && s.is_sub_etapa === seg.isSub);
-                        if (ti > -1) {
-                          newItin[ti] = { ...newItin[ti], [field]: val };
-                        } else {
-                          newItin.push({ ...stage, [field]: val });
-                        }
-                        set('itinerario', newItin);
-                      };
-                      return (
-                        <div key={idx} style={{ padding: '12px', border: '1px solid #fff3e0', borderRadius: '10px', background: '#fffdf9', borderLeft: '3px solid #ff9800' }}>
-                          <div style={{ fontWeight: 700, fontSize: '0.8rem', color: '#e65100', marginBottom: '8px' }}>{seg.label}</div>
-                          <div style={{ display: 'flex', gap: '8px' }}>
-                            <div className="form-group" style={{ flex: 1 }}>
-                              <label style={{ fontSize: '0.72rem' }}>Local</label>
-                              <input type="text" value={stage.local} onChange={e => updateStage('local', e.target.value)} placeholder="Local..." />
-                            </div>
-                            <div className="form-group" style={{ flex: 1 }}>
-                              <label style={{ fontSize: '0.72rem' }}>Período</label>
-                              <input type="text" value={stage.periodo} onChange={e => updateStage('periodo', e.target.value)} placeholder="Ex: 2020-2022" />
-                            </div>
-                          </div>
-                        </div>
-                      );
-                    })}
-                  </div>
                   <div className="wizard-divider" style={{ marginTop: '16px' }}>Documentos do Itinerário (opcional)</div>
-
                   <div className="form-row-2" style={{ alignItems: 'flex-end', gap: '10px' }}>
                     <div className="form-group" style={{ flex: 1 }}>
                       <label>Selecione a Etapa</label>
@@ -1167,7 +1191,7 @@ const Missionarios: React.FC = () => {
                           const file = e.target.files?.[0];
                           if (file && itinSelectedStage) {
                             setItineraryDocs(prev => [...prev, { file, stage: itinSelectedStage }]);
-                            setItinSelectedStage(''); // reset selector
+                            setItinSelectedStage('');
                             if (itinStepFileRef.current) itinStepFileRef.current.value = '';
                           }
                         }}
@@ -1196,10 +1220,10 @@ const Missionarios: React.FC = () => {
                 </div>
               )}
 
-              {/* ══ STEP Formação & Missão ══ */}
+              {/* ══ STEP 4 — Formação Acadêmica ══ */}
               {wizardStep === 4 && (
                 <div className="wizard-step-content">
-                  <div className="wizard-divider">5. Formação & Missão</div>
+                  <div className="wizard-divider">5. Formação Acadêmica</div>
                   <div className="form-group full">
                     <label>Curso / Graduação</label>
                     <input type="text" value={wizardData.formacao_curso} onChange={e => set('formacao_curso', e.target.value)} placeholder="Ex: Teologia, Filosofia, Administração..." />
@@ -1207,7 +1231,7 @@ const Missionarios: React.FC = () => {
                   <div className="form-row-2">
                     <div className="form-group">
                       <label>Instituição / Faculdade</label>
-                      <input type="text" value={wizardData.formacao_instituicao} onChange={e => set('formacao_instituicao', e.target.value)} />
+                      <input type="text" value={wizardData.formacao_instituicao} onChange={e => set('formacao_instituicao', e.target.value)} placeholder="Ex: PUC, Unicamp..." />
                     </div>
                     <div className="form-group">
                       <label>Período</label>
@@ -1215,7 +1239,7 @@ const Missionarios: React.FC = () => {
                     </div>
                   </div>
 
-                  <div className="wizard-divider" style={{ marginTop: '8px' }}>Documento Comprobatório (opcional)</div>
+                  <div className="wizard-divider" style={{ marginTop: '12px' }}>Documento Comprobatório / Diploma (opcional)</div>
                   <div className="doc-add-row">
                     <span style={{ fontSize: '13px', color: '#666', alignSelf: 'center' }}>
                       {formacaoDocFile ? formacaoDocFile.name : 'Nenhum arquivo selecionado'}
@@ -1234,23 +1258,89 @@ const Missionarios: React.FC = () => {
                       <button onClick={() => setFormacaoDocFile(null)} style={{ background: 'none', border: 'none', color: '#e57373', cursor: 'pointer', fontSize: '18px' }} title="Remover">✕</button>
                     )}
                   </div>
-                  <p className="wizard-hint" style={{ marginTop: '4px' }}>
-                    Outras atividades e obras realizadas podem ser adicionadas no perfil após o cadastro.
-                  </p>
                 </div>
               )}
 
-              {/* ══ STEP Saúde & Financeiro ══ */}
+              {/* ══ STEP 5 — Atividade Missionária (com Função da Atividade) ══ */}
               {wizardStep === 5 && (
                 <div className="wizard-step-content">
-                  <div className="wizard-divider">6. Saúde & Financeiro</div>
+                  <div className="wizard-divider">6. Atividade Missionária</div>
+                  <div className="form-group full">
+                    <label>Lugar / Instituição / Paróquia</label>
+                    <input type="text" value={wizardData.atividade_lugar} onChange={e => set('atividade_lugar', e.target.value)} placeholder="Ex: Casa do Migrante de Passo Fundo" />
+                  </div>
+                  <div className="form-row-2">
+                    <div className="form-group">
+                      <label>Período</label>
+                      <input type="text" value={wizardData.atividade_periodo} onChange={e => set('atividade_periodo', e.target.value)} placeholder="Ex: 2000 a 2002" />
+                    </div>
+                    <div className="form-group">
+                      <label>Missão / Descrição</label>
+                      <input type="text" value={wizardData.atividade_missao} onChange={e => set('atividade_missao', e.target.value)} placeholder="Descrição breve das atividades..." />
+                    </div>
+                  </div>
+
+                  {/* ── Checkboxes de Função da Atividade ── */}
+                  <div className="wizard-divider" style={{ marginTop: '14px' }}>Função da Atividade</div>
+                  <p style={{ fontSize: '0.78rem', color: '#666', marginBottom: '8px' }}>
+                    Selecione uma ou mais funções exercidas nesta atividade missionária:
+                  </p>
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px 12px' }}>
+                    {[
+                      { key: 'Superior Local', label: 'Superior Local' },
+                      { key: 'Pároco', label: 'Pároco' },
+                      { key: 'Diretor', label: 'Diretor (rádios, escolas, fundações, escritórios)' },
+                      { key: 'Ecônomo Local', label: 'Ecônomo Local' },
+                      { key: 'Vigário', label: 'Vigário' },
+                      { key: 'Reitor', label: 'Reitor (seminários)' },
+                      { key: 'Outros', label: 'Outros' },
+                    ].map(r => (
+                      <label key={r.key} className="checkbox-label" style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer', fontSize: '0.85rem' }}>
+                        <input
+                          type="checkbox"
+                          checked={Array.isArray(wizardData.atividade_funcoes) && wizardData.atividade_funcoes.includes(r.key)}
+                          onChange={e => {
+                            const current = Array.isArray(wizardData.atividade_funcoes) ? [...wizardData.atividade_funcoes] : [];
+                            if (e.target.checked) {
+                              if (!current.includes(r.key)) current.push(r.key);
+                            } else {
+                              const idx = current.indexOf(r.key);
+                              if (idx >= 0) current.splice(idx, 1);
+                            }
+                            set('atividade_funcoes', current);
+                          }}
+                        />
+                        {r.label}
+                      </label>
+                    ))}
+                  </div>
+
+                  {/* Se "Outros" estiver selecionado, exibir o campo de texto livre */}
+                  {Array.isArray(wizardData.atividade_funcoes) && wizardData.atividade_funcoes.includes('Outros') && (
+                    <div className="form-group full" style={{ marginTop: '12px' }}>
+                      <label>Especifique a Função ("Outros")</label>
+                      <input
+                        type="text"
+                        value={wizardData.atividade_funcoes_outros}
+                        onChange={e => set('atividade_funcoes_outros', e.target.value)}
+                        placeholder="Digite a outra função exercida..."
+                      />
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {/* ══ STEP 6 — Saúde & Previdenciário ══ */}
+              {wizardStep === 6 && (
+                <div className="wizard-step-content">
+                  <div className="wizard-divider">7. Saúde</div>
                   <div className="form-row-3">
                     <div className="form-group"><label>CNS (SUS)</label><input type="text" value={wizardData.saude_sus} onChange={e => set('saude_sus', e.target.value)} /></div>
                     <div className="form-group"><label>Seguradora</label><input type="text" value={wizardData.saude_seguradora} onChange={e => set('saude_seguradora', e.target.value)} /></div>
                     <div className="form-group"><label>Term. Carteira</label><input type="text" value={wizardData.saude_carteira} onChange={e => set('saude_carteira', e.target.value)} /></div>
                   </div>
 
-                  <div className="wizard-divider" style={{ marginTop: '6px' }}>Documento de Saúde (opcional)</div>
+                  <div className="wizard-divider" style={{ marginTop: '10px' }}>Documento de Saúde (opcional)</div>
                   <div className="doc-add-row">
                     <span style={{ fontSize: '13px', color: '#666', alignSelf: 'center' }}>
                       {saudeDocFile ? saudeDocFile.name : 'Nenhum arquivo selecionado'}
@@ -1270,13 +1360,18 @@ const Missionarios: React.FC = () => {
                     )}
                   </div>
 
-                  <div className="wizard-divider" style={{ marginTop: '16px' }}><DollarSign size={14} /> Dados Financeiros & NIT</div>
+                  <div className="wizard-divider" style={{ marginTop: '16px' }}>8. Previdenciário / IR</div>
                   <div className="form-group full">
                     <label>NIT (Número de Identificação do Trabalhador)</label>
                     <input type="text" value={wizardData.nit} onChange={e => set('nit', e.target.value)} placeholder="000.00000.00-0" />
                   </div>
+                </div>
+              )}
 
-                  <div className="wizard-divider" style={{ marginTop: '10px', fontSize: '10px' }}>Conta Bancária Principal</div>
+              {/* ══ STEP 7 — Contas, Obras, Obs & Quadro ══ */}
+              {wizardStep === 7 && (
+                <div className="wizard-step-content">
+                  <div className="wizard-divider">9. Contas Bancárias</div>
                   <div className="form-row-2">
                     <div className="form-group"><label>Tipo de Conta</label><input type="text" value={wizardData.banco_tipo} onChange={e => set('banco_tipo', e.target.value)} placeholder="Corrente, Poupança..." /></div>
                     <div className="form-group"><label>Titularidade</label><input type="text" value={wizardData.banco_titular} onChange={e => set('banco_titular', e.target.value)} /></div>
@@ -1285,18 +1380,61 @@ const Missionarios: React.FC = () => {
                     <div className="form-group"><label>Agência</label><input type="text" value={wizardData.banco_agencia} onChange={e => set('banco_agencia', e.target.value)} /></div>
                     <div className="form-group"><label>Número da Conta</label><input type="text" value={wizardData.banco_numero} onChange={e => set('banco_numero', e.target.value)} /></div>
                   </div>
+
+                  <div className="wizard-divider" style={{ marginTop: '14px' }}>11. Obras Realizadas (opcional)</div>
+                  <div className="form-row-2">
+                    <div className="form-group"><label>Período</label><input type="text" value={wizardData.obra_periodo} onChange={e => set('obra_periodo', e.target.value)} placeholder="Ex: 2010-2015" /></div>
+                    <div className="form-group"><label>Lugar</label><input type="text" value={wizardData.obra_lugar} onChange={e => set('obra_lugar', e.target.value)} placeholder="Local da obra/livro..." /></div>
+                  </div>
+                  <div className="form-group full">
+                    <label>Descrição da Obra / Publicação</label>
+                    <input type="text" value={wizardData.obra_descricao} onChange={e => set('obra_descricao', e.target.value)} placeholder="Título da publicação ou detalhes da obra..." />
+                  </div>
+
+                  <div className="wizard-divider" style={{ marginTop: '14px' }}>12. Observações Gerais (opcional)</div>
+                  <div className="form-group full">
+                    <label>Observação Inicial</label>
+                    <textarea value={wizardData.obs_geral} onChange={e => set('obs_geral', e.target.value)} placeholder="Observações de cadastro..." style={{ padding: '8px 12px', border: '1px solid #ddd', borderRadius: '8px', minHeight: '60px' }} />
+                  </div>
+
+                  <div className="wizard-divider" style={{ marginTop: '14px' }}>13. Quadro de Pessoal CV (opcional)</div>
+                  <div className="form-group full">
+                    <label>Função Atual</label>
+                    <input type="text" value={wizardData.quadro_funcao_atual} onChange={e => set('quadro_funcao_atual', e.target.value)} placeholder="Função no quadro de pessoal..." />
+                  </div>
+                  <div className="form-group full">
+                    <label>Competências / Resumo Profissional</label>
+                    <input type="text" value={wizardData.quadro_competencias} onChange={e => set('quadro_competencias', e.target.value)} placeholder="Resumo de competências..." />
+                  </div>
+                  <div className="doc-add-row" style={{ marginTop: '8px' }}>
+                    <span style={{ fontSize: '13px', color: '#666', alignSelf: 'center' }}>
+                      {quadroCvFile ? quadroCvFile.name : 'Nenhum CV selecionado'}
+                    </span>
+                    <button className="btn-add-doc" onClick={() => quadroFileRef.current?.click()}>
+                      <Plus size={16} /> Anexar Currículo (CV)
+                    </button>
+                    <input
+                      ref={quadroFileRef}
+                      type="file"
+                      accept=".pdf,.jpg,.jpeg,.png"
+                      style={{ display: 'none' }}
+                      onChange={e => setQuadroCvFile(e.target.files?.[0] || null)}
+                    />
+                    {quadroCvFile && (
+                      <button onClick={() => setQuadroCvFile(null)} style={{ background: 'none', border: 'none', color: '#e57373', cursor: 'pointer', fontSize: '18px' }} title="Remover">✕</button>
+                    )}
+                  </div>
                 </div>
               )}
 
-              {/* ══ STEP 4 — Casas Religiosas ══ */}
-              {wizardStep === 6 && (
+              {/* ══ STEP 8 — Presença Missionária (Casas Religiosas sem checkboxes de função) ══ */}
+              {wizardStep === 8 && (
                 <div className="wizard-step-content">
                   <div className="wizard-divider">Presença Missionária</div>
                   <p className="wizard-hint">
-                    {t('missionaries.wizard.houses.hint')}
+                    Vincule o missionário a uma ou mais casas religiosas.
                   </p>
 
-                  {/* Add casa form */}
                   <div className="casa-wizard-add">
                     <div className="casa-wizard-add-fields">
                       <div className="form-group">
@@ -1312,7 +1450,7 @@ const Missionarios: React.FC = () => {
                         </select>
                       </div>
                       <div className="form-group">
-                        <label>{t('missionaries.wizard.houses.select_house')}</label>
+                        <label>Selecione a Casa</label>
                         <select value={novaCasa.casa_id} onChange={e => setNovaCasa(p => ({ ...p, casa_id: e.target.value }))}>
                           <option value="">Selecione...</option>
                           {(Array.isArray(casasDisponiveis) ? casasDisponiveis : []).map(c => <option key={c.id} value={c.id}>{c.nome}</option>)}
@@ -1325,53 +1463,21 @@ const Missionarios: React.FC = () => {
                       <div className="form-group">
                         <label>País</label>
                         <input type="text" list="paises-list" value={novaCasa.pais} onChange={e => setNovaCasa(p => ({ ...p, pais: e.target.value }))} placeholder="Selecione ou digite..." />
-                        <datalist id="paises-list">
-                          {(Array.isArray(PAISES_COMMON) ? PAISES_COMMON : []).map(p => <option key={p} value={p} />)}
-                        </datalist>
                       </div>
                       <div className="form-group">
-                        <label>{t('missionaries.wizard.houses.start_date')}</label>
+                        <label>Data de Início</label>
                         <input type="date" value={novaCasa.data_inicio} onChange={e => setNovaCasa(p => ({ ...p, data_inicio: e.target.value }))} />
-                      </div>
-                      <div className="form-group" style={{ gridColumn: '1 / -1', display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px' }}>
-                        {[
-                          { key: 'Superior Local', label: 'Superior Local', isSuperior: true },
-                          { key: 'Ecônomo Local', label: 'Ecônomo Local' },
-                          { key: 'Pároco', label: 'Pároco' },
-                          { key: 'Diretor', label: 'Diretor' },
-                          { key: 'Vigário', label: 'Vigário' },
-                          { key: 'Reitor', label: 'Reitor' },
-                        ].map(r => (
-                          <label key={r.key} className="checkbox-label" style={{ marginTop: '6px', display: 'flex', alignItems: 'center', gap: '8px' }}>
-                            <input
-                              type="checkbox"
-                              checked={Array.isArray(novaCasa.funcao) && novaCasa.funcao.includes(r.key)}
-                              onChange={e => setNovaCasa(p => {
-                                const current = Array.isArray(p.funcao) ? [...p.funcao] : [];
-                                if (e.target.checked) {
-                                  if (!current.includes(r.key)) current.push(r.key);
-                                } else {
-                                  const idx = current.indexOf(r.key);
-                                  if (idx >= 0) current.splice(idx, 1);
-                                }
-                                return { ...p, funcao: current, is_superior: r.isSuperior ? current.includes('Superior Local') : p.is_superior };
-                              })}
-                            />
-                            {r.label}
-                          </label>
-                        ))}
                       </div>
                     </div>
                     <div style={{ display: 'flex', justifyContent: 'center', marginTop: '10px' }}>
                       <button className="btn-add-casa-wz" onClick={addCasaVinculo}>
-                        <Plus size={15} /> {t('missionaries.wizard.houses.bind_btn')}
+                        <Plus size={15} /> Vincular Casa
                       </button>
                     </div>
                   </div>
 
-                  {/* Added houses list */}
                   {!Array.isArray(casasVinculos) || casasVinculos.length === 0 ? (
-                    <div className="casa-empty">{t('missionaries.wizard.houses.empty')}</div>
+                    <div className="casa-empty">Nenhuma casa vinculada ainda.</div>
                   ) : (
                     <div className="casas-wz-list">
                       {casasVinculos.map((v, i) => (
@@ -1381,9 +1487,8 @@ const Missionarios: React.FC = () => {
                             <div>
                               <span className="casa-wz-nome">{casaNome(v.casa_id)}</span>
                               <div className="casa-wz-meta">
-                                  <span>{t('missionaries.wizard.houses.since')} {formatDateLocal(v.data_inicio)}</span>
+                                <span>Desde {formatDateLocal(v.data_inicio)}</span>
                                 <span className="duracao-pill">⏱ {calcDuracao(v.data_inicio)}</span>
-                                {v.funcao && (Array.isArray(v.funcao) ? v.funcao.length > 0 : true) && <span className="superior-pill"><Star size={11} /> {Array.isArray(v.funcao) ? v.funcao.join(', ') : String(v.funcao)}</span>}
                                 {v.pm && <div style={{ fontSize: '12px', color: '#3b82f6', marginTop: '4px' }}>PM: {v.pm}</div>}
                                 {v.tipo && <div style={{ fontSize: '12px', color: '#475569', marginTop: '2px' }}>{v.tipo}</div>}
                               </div>
@@ -1396,20 +1501,18 @@ const Missionarios: React.FC = () => {
                       ))}
                     </div>
                   )}
-
-                  
                 </div>
               )}
 
-              {/* ══ STEP 7 — Acesso Login ══ */}
-              {wizardStep === 7 && (
+              {/* ══ STEP 9 — Acesso & Permissões ══ */}
+              {wizardStep === 9 && (
                 <div className="wizard-step-content">
-                  <div className="wizard-divider">8. Acesso</div>
+                  <div className="wizard-divider">Acesso & Permissões</div>
                   <p className="wizard-hint">
-                    {t('missionaries.wizard.access.hint')}
+                    Configure os dados de login e permissões de acesso do missionário ao sistema.
                   </p>
                   <div className="form-group full">
-                    <label>{t('missionaries.wizard.access.email')}</label>
+                    <label>E-mail de Login *</label>
                     <input type="email" value={wizardData.login} onChange={e => set('login', e.target.value)} placeholder="padre@email.com" />
                   </div>
                   <div className="form-group full">
@@ -1440,10 +1543,10 @@ const Missionarios: React.FC = () => {
                   </div>
 
                   <div className="form-group full">
-                    <label>{t('missionaries.wizard.access.account_status')}</label>
+                    <label>Status da Conta</label>
                     <select value={wizardData.status} onChange={e => set('status', e.target.value as 'ATIVO' | 'INATIVO')}>
-                      <option value="ATIVO">{t('missionaries.wizard.access.active_desc')}</option>
-                      <option value="INATIVO">{t('missionaries.wizard.access.inactive_desc')}</option>
+                      <option value="ATIVO">Ativo - Acesso Liberado</option>
+                      <option value="INATIVO">Inativo - Acesso Bloqueado</option>
                     </select>
                   </div>
 
@@ -1471,17 +1574,12 @@ const Missionarios: React.FC = () => {
 
                   {/* Summary */}
                   <div className="wizard-summary">
-                    <h4>{t('missionaries.wizard.access.summary')}</h4>
-                    <div className="summary-row"><span>{t('missionaries.table.name')}</span><strong>{wizardData.nome || '—'}</strong></div>
-                    <div className="summary-row"><span>{t('missionaries.table.login')}</span><strong>{wizardData.login || '—'}</strong></div>
-                    <div className="summary-row">
-                      <span>{t('missionaries.table.situation')}</span>
-                      <strong>{t(`missionaries.situations.${(wizardData.situacao || '').toLowerCase()}`, wizardData.situacao)}</strong>
-                    </div>
-                    <div className="summary-row"><span>{t('missionaries.table.oconomo')}</span><strong>{wizardData.is_oconomo ? t('common.yes') : t('common.no')}</strong></div>
-                    <div className="summary-row"><span>{t('missionaries.table.superior')}</span><strong>{wizardData.is_superior ? t('common.yes') : t('common.no')}</strong></div>
-                    <div className="summary-row"><span>{t('menu.houses')}</span><strong>{casasVinculos.length}</strong></div>
-                    <div className="summary-row"><span>{t('missionaries.wizard.docs.title')}</span><strong>{docs.length}</strong></div>
+                    <h4>Resumo do Cadastro</h4>
+                    <div className="summary-row"><span>Nome:</span><strong>{wizardData.nome || '—'}</strong></div>
+                    <div className="summary-row"><span>E-mail:</span><strong>{wizardData.login || '—'}</strong></div>
+                    <div className="summary-row"><span>Situação:</span><strong>{wizardData.situacao}</strong></div>
+                    <div className="summary-row"><span>Casas Vinculadas:</span><strong>{casasVinculos.length}</strong></div>
+                    <div className="summary-row"><span>Documentos Anexados:</span><strong>{docs.length}</strong></div>
                   </div>
                 </div>
               )}
@@ -1490,7 +1588,7 @@ const Missionarios: React.FC = () => {
             {/* Footer */}
             <div className="wizard-footer">
               <button className="btn-back" onClick={() => wizardStep > 0 ? setWizardStep(s => s - 1) : setIsWizardOpen(false)}>
-                {wizardStep > 0 ? <><ChevronLeft size={18} /> {t('missionaries.wizard.common.back')}</> : t('missionaries.wizard.common.cancel')}
+                {wizardStep > 0 ? <><ChevronLeft size={18} /> Voltar</> : 'Cancelar'}
               </button>
 
               <div className="step-dots">
@@ -1499,10 +1597,10 @@ const Missionarios: React.FC = () => {
 
               {wizardStep < STEPS.length - 1 ? (
                 <button className="btn-save" onClick={() => {
-                  if (wizardStep === 0 && !wizardData.nome.trim()) { alert('Informe o nome.'); return; }
+                  if (wizardStep === 0 && !wizardData.nome.trim()) { alert('Informe o nome completo.'); return; }
                   setWizardStep(s => s + 1);
                 }}>
-                  {t('missionaries.wizard.common.next')} <ChevronRight size={16} />
+                  Próximo <ChevronRight size={16} />
                 </button>
               ) : (
                 <button className="btn-save" onClick={handleFinish} disabled={saveLoading}>

@@ -22,6 +22,7 @@ interface User {
     nome: string;
     email: string;
     role: UserRole;
+    situacao?: string;
     is_oconomo?: boolean;
     is_superior?: boolean;
     casa_id?: number | null;

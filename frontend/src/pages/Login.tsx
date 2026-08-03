@@ -45,8 +45,14 @@ const Login: React.FC = () => {
           'SUPERIOR_LOCAL',
           'ECONOMO_LOCAL'
         ].includes(role);
+        const loggedUser = response.data.user;
         if (!isAdm) {
-          navigate('/financeiro');
+          const isInactive = !!loggedUser.situacao && loggedUser.situacao.trim().toUpperCase() !== 'ATIVO';
+          if (isInactive) {
+            navigate(`/missionarios/${loggedUser.id}`);
+          } else {
+            navigate('/financeiro');
+          }
         } else {
           navigate('/home');
         }

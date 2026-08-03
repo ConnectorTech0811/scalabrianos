@@ -48,6 +48,8 @@ const Sidebar: React.FC = () => {
 
   const menuItems: MenuItem[] = [];
 
+  const isInactiveMissionary = !isAdminGeral && !canEdit && !isRegional && !!user?.situacao && user.situacao.trim().toUpperCase() !== 'ATIVO';
+
   // 1. Missionários / Seminaristas
   if (isAdminGeral || canEdit || isRegional) {
     menuItems.push({ icon: <Users size={20} />, label: t('menu.missionaries'), path: '/missionarios' });
@@ -58,14 +60,14 @@ const Sidebar: React.FC = () => {
     menuItems.push({ icon: <HomeIcon size={20} />, label: t('menu.houses'), path: '/casas-religiosas' });
   }
 
-  // 3. Prestação de Contas
-  menuItems.push({ icon: <DollarSign size={20} />, label: t('menu.finance'), path: '/financeiro' });
-  if (user?.role !== 'REGISTRO_REGIONAL' && user?.role !== 'ADMIN_GERAL') {
-    menuItems.push({ icon: <ClipboardList size={20} />, label: 'Extratos Mensais', path: '/extratos-mensais' });
+  // 3. Prestação de Contas, Extratos e Mapa (apenas para ativos ou administradores)
+  if (!isInactiveMissionary) {
+    menuItems.push({ icon: <DollarSign size={20} />, label: t('menu.finance'), path: '/financeiro' });
+    if (user?.role !== 'REGISTRO_REGIONAL' && user?.role !== 'ADMIN_GERAL') {
+      menuItems.push({ icon: <ClipboardList size={20} />, label: 'Extratos Mensais', path: '/extratos-mensais' });
+    }
+    menuItems.push({ icon: <Globe size={20} />, label: t('menu.map'), path: '/mapa' });
   }
-
-  // 4. Mapa RNSMM
-  menuItems.push({ icon: <Globe size={20} />, label: t('menu.map'), path: '/mapa' });
 
 
 
