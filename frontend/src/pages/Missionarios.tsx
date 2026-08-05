@@ -1241,7 +1241,7 @@ const Missionarios: React.FC = () => {
                           </div>
                         );
                       }
-                      const stage = wizardData.itinerario.find(s => s.etapa === seg.etapa) || { etapa: seg.etapa, is_sub_etapa: true, local: '', periodo: '' };
+                      const stage = wizardData.itinerario.find(s => s.etapa === seg.etapa) || { etapa: (seg.etapa as string), is_sub_etapa: true, local: '', periodo: '' };
                       const updateStage = (field: 'local' | 'periodo', val: string) => {
                         const newItin = [...wizardData.itinerario];
                         let ti = newItin.findIndex(s => s.etapa === seg.etapa);

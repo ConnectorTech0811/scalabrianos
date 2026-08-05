@@ -2920,10 +2920,10 @@ const PerfilMissionario: React.FC = () => {
                           </div>
                           {tempForm.doc_path && (
                             <div style={{ display: 'flex', gap: '10px', alignItems: 'center', marginTop: '8px' }}>
-                              <a href={getFileUrl(tempForm.doc_path)} target="_blank" rel="noreferrer" style={{ fontSize: '0.85rem', color: '#1d4ed8', textDecoration: 'none', display: 'flex', alignItems: 'center', gap: '4px', fontWeight: 600 }}>
+                              <a href={getFileUrl(tempForm.doc_path) || '#'} target="_blank" rel="noreferrer" style={{ fontSize: '0.85rem', color: '#1d4ed8', textDecoration: 'none', display: 'flex', alignItems: 'center', gap: '4px', fontWeight: 600 }}>
                                 <FileText size={14} /> Visualizar Documento
                               </a>
-                              <button type="button" onClick={() => setTempForm({ ...tempForm, doc_path: null })} style={{ fontSize: '0.85rem', color: '#ef4444', background: 'none', border: 'none', cursor: 'pointer', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '4px' }}>
+                              <button type="button" onClick={() => setTempForm({ ...tempForm, doc_path: undefined })} style={{ fontSize: '0.85rem', color: '#ef4444', background: 'none', border: 'none', cursor: 'pointer', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '4px' }}>
                                 <Trash2 size={14} /> Remover Anexo
                               </button>
                             </div>
