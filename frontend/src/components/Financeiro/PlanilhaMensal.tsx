@@ -180,7 +180,9 @@ const PlanilhaMensal: React.FC<Props> = ({ casas, categorias, externalUsuarioId,
   const isSuperior = user?.role === 'ADMIN_GERAL' || user?.is_superior;
 
   const isOwner = !externalUsuarioId || externalUsuarioId === user?.id;
-  const isLocked = planilha?.status === 'VALIDADO' || (planilha?.status === 'PENDENTE' && isOwner) || (!isOwner && planilha?.status !== 'PENDENTE');
+  const isLocked = isOwner 
+    ? (planilha?.status === 'EM_VALIDACAO' || planilha?.status === 'VALIDADO')
+    : (planilha?.status !== 'EM_VALIDACAO');
 
   useEffect(() => {
     if (user?.casa_id && !selectedCasa) {

@@ -176,6 +176,7 @@ async function ensureOptionalSchema() {
         egresso_transf_da_regiao_path VARCHAR(500) DEFAULT NULL,
         exclaustrado_data DATE DEFAULT NULL,
         exclaustrado_processo VARCHAR(255) DEFAULT NULL,
+        exclaustrado_doc_path VARCHAR(500) DEFAULT NULL,
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
         updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
         FOREIGN KEY (usuario_id) REFERENCES tb_usuarios(id) ON DELETE CASCADE
@@ -210,7 +211,8 @@ async function ensureOptionalSchema() {
       {
         table: 'tb_dados_situacao',
         columns: [
-          { name: 'egresso_transf_sacerdotes_path', sql: "ALTER TABLE tb_dados_situacao ADD COLUMN egresso_transf_sacerdotes_path VARCHAR(500) DEFAULT NULL" }
+          { name: 'egresso_transf_sacerdotes_path', sql: "ALTER TABLE tb_dados_situacao ADD COLUMN egresso_transf_sacerdotes_path VARCHAR(500) DEFAULT NULL" },
+          { name: 'exclaustrado_doc_path', sql: "ALTER TABLE tb_dados_situacao ADD COLUMN exclaustrado_doc_path VARCHAR(500) DEFAULT NULL" }
         ]
       }
     ];
@@ -1709,7 +1711,7 @@ app.post('/api/usuarios/:id/situacao', authenticateToken, async (req, res) => {
     egresso_incardinado_path, egresso_desistencia_path, egresso_laicizado_path,
     egresso_transf_sacerdotes_path,
     egresso_transf_para_regiao_path, egresso_transf_da_regiao_path,
-    exclaustrado_data, exclaustrado_processo
+    exclaustrado_data, exclaustrado_processo, exclaustrado_doc_path
   } = req.body;
   
   try {
@@ -1722,7 +1724,7 @@ app.post('/api/usuarios/:id/situacao', authenticateToken, async (req, res) => {
           egresso_incardinado_path = ?, egresso_desistencia_path = ?, egresso_laicizado_path = ?,
           egresso_transf_sacerdotes_path = ?,
           egresso_transf_para_regiao_path = ?, egresso_transf_da_regiao_path = ?,
-          exclaustrado_data = ?, exclaustrado_processo = ?
+          exclaustrado_data = ?, exclaustrado_processo = ?, exclaustrado_doc_path = ?
         WHERE usuario_id = ?
       `, [
         sanitizeDate(data_falecimento), 
@@ -1737,6 +1739,7 @@ app.post('/api/usuarios/:id/situacao', authenticateToken, async (req, res) => {
         sanitizeString(egresso_transf_da_regiao_path),
         sanitizeDate(exclaustrado_data), 
         sanitizeString(exclaustrado_processo), 
+        sanitizeString(exclaustrado_doc_path),
         req.params.id
       ]);
     } else {
@@ -1746,8 +1749,8 @@ app.post('/api/usuarios/:id/situacao', authenticateToken, async (req, res) => {
           egresso_incardinado_path, egresso_desistencia_path, egresso_laicizado_path,
           egresso_transf_sacerdotes_path,
           egresso_transf_para_regiao_path, egresso_transf_da_regiao_path,
-          exclaustrado_data, exclaustrado_processo
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+          exclaustrado_data, exclaustrado_processo, exclaustrado_doc_path
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
       `, [
         req.params.id, 
         sanitizeDate(data_falecimento), 
@@ -1761,7 +1764,8 @@ app.post('/api/usuarios/:id/situacao', authenticateToken, async (req, res) => {
         sanitizeString(egresso_transf_para_regiao_path), 
         sanitizeString(egresso_transf_da_regiao_path),
         sanitizeDate(exclaustrado_data), 
-        sanitizeString(exclaustrado_processo)
+        sanitizeString(exclaustrado_processo),
+        sanitizeString(exclaustrado_doc_path)
       ]);
     }
     res.json({ success: true });
@@ -1785,7 +1789,8 @@ app.post('/api/usuarios/:id/situacao/upload-doc', authenticateToken, (req, res) 
       'egresso_laicizado_path',
       'egresso_transf_sacerdotes_path',
       'egresso_transf_para_regiao_path',
-      'egresso_transf_da_regiao_path'
+      'egresso_transf_da_regiao_path',
+      'exclaustrado_doc_path'
     ];
     if (!allowedCampos.includes(campo)) {
       return res.status(400).json({ message: 'Campo inválido' });

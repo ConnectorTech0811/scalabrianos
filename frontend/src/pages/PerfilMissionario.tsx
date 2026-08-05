@@ -89,6 +89,7 @@ interface SituacaoData {
   egresso_transf_da_regiao_path: string;
   exclaustrado_data: string;
   exclaustrado_processo: string;
+  exclaustrado_doc_path?: string;
 }
 
 const PAISES_COMMON = [
@@ -294,7 +295,7 @@ const PerfilMissionario: React.FC = () => {
     data_falecimento: '', cidade_falecimento: '', certidao_obito_path: '', local_sepultamento: '',
     egresso_incardinado_path: '', egresso_desistencia_path: '', egresso_laicizado_path: '',
     egresso_transf_sacerdotes_path: '', egresso_transf_para_regiao_path: '', egresso_transf_da_regiao_path: '',
-    exclaustrado_data: '', exclaustrado_processo: ''
+    exclaustrado_data: '', exclaustrado_processo: '', exclaustrado_doc_path: ''
   });
 
   const uploadSituacaoDoc = async (campo: keyof SituacaoData, e: React.ChangeEvent<HTMLInputElement>) => {
@@ -366,6 +367,85 @@ const PerfilMissionario: React.FC = () => {
           ) : (
             <span style={{ fontSize: '0.85rem', color: '#94a3b8', fontStyle: 'italic' }}>Nenhum documento anexado.</span>
           )
+        )}
+      </div>
+    );
+  };
+
+  const renderExclaustradoDocs = () => {
+    const filePaths = (situacaoData.exclaustrado_doc_path || '').split(',').map(s => s.trim()).filter(Boolean);
+    return (
+      <div id="exclaustrado_doc_path" className="form-group full" style={{ background: '#f8fafc', padding: '12px 16px', borderRadius: '10px', border: '1px solid #e2e8f0', marginBottom: '10px', transition: 'all 0.3s ease' }}>
+        <label style={{ fontWeight: 600, color: '#334155', marginBottom: '6px', display: 'block' }}>Documentos Anexados (Adicione quantos desejar)</label>
+        
+        {filePaths.length > 0 ? (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', marginBottom: '12px' }}>
+            {filePaths.map((path, idx) => (
+              <div key={idx} style={{ display: 'flex', alignItems: 'center', gap: '12px', flexWrap: 'wrap' }}>
+                <a
+                  href={`${api.defaults.baseURL?.replace('/api', '') || ''}${path}`}
+                  target="_blank"
+                  rel="noreferrer"
+                  style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', color: '#1d4ed8', fontWeight: 600, textDecoration: 'none', background: '#eff6ff', padding: '6px 12px', borderRadius: '6px', border: '1px solid #bfdbfe' }}
+                >
+                  <FileText size={16} /> Ver Documento {idx + 1}
+                </a>
+                {canEdit && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const newPaths = filePaths.filter((_, i) => i !== idx);
+                      setSituacaoData(prev => ({ ...prev, exclaustrado_doc_path: newPaths.join(',') }));
+                    }}
+                    style={{ background: '#fee2e2', color: '#991b1b', border: '1px solid #fca5a5', borderRadius: '6px', padding: '6px 10px', cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: '4px', fontSize: '0.85rem' }}
+                  >
+                    <Trash2 size={14} /> Remover
+                  </button>
+                )}
+              </div>
+            ))}
+          </div>
+        ) : (
+          <span style={{ fontSize: '0.85rem', color: '#94a3b8', fontStyle: 'italic', display: 'block', marginBottom: '12px' }}>Nenhum documento anexado.</span>
+        )}
+        
+        {canEdit && (
+          <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+            <input
+              type="file"
+              id="file-input-exclaustrado_doc_path"
+              accept=".pdf,.jpg,.jpeg,.png"
+              style={{ display: 'none' }}
+              onChange={async (e) => {
+                const file = e.target.files?.[0];
+                if (!file) return;
+                const fd = new FormData();
+                fd.append('arquivo', file);
+                fd.append('descricao', `Documento de Exclaustração`);
+                setIsSaving(true);
+                try {
+                  const res = await api.post(`/usuarios/${id}/documentos`, fd, { headers: { 'Content-Type': 'multipart/form-data' } });
+                  if (res.data?.url || res.data?.arquivo_path) {
+                    const newUrl = res.data.url || res.data.arquivo_path;
+                    const newPaths = [...filePaths, newUrl];
+                    setSituacaoData(prev => ({ ...prev, exclaustrado_doc_path: newPaths.join(',') }));
+                    alert('Documento anexado! Não esqueça de clicar em "Salvar Situação" para finalizar.');
+                  }
+                } catch (err: any) {
+                  alert('Erro ao enviar documento: ' + (err?.response?.data?.message || err.message));
+                } finally {
+                  setIsSaving(false);
+                  e.target.value = '';
+                }
+              }}
+            />
+            <label
+              htmlFor="file-input-exclaustrado_doc_path"
+              style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', background: '#3b82f6', color: '#fff', padding: '8px 16px', borderRadius: '8px', cursor: 'pointer', fontWeight: 600, fontSize: '0.85rem' }}
+            >
+              <Upload size={15} /> Adicionar Documento
+            </label>
+          </div>
         )}
       </div>
     );
@@ -785,6 +865,7 @@ const PerfilMissionario: React.FC = () => {
         ...sitRes.data,
         data_falecimento: sitRes.data.data_falecimento ? sitRes.data.data_falecimento.split('T')[0] : '',
         exclaustrado_data: sitRes.data.exclaustrado_data ? sitRes.data.exclaustrado_data.split('T')[0] : '',
+        exclaustrado_doc_path: sitRes.data.exclaustrado_doc_path || '',
       });
 
     } catch (err) {
@@ -1081,7 +1162,8 @@ const PerfilMissionario: React.FC = () => {
       const res = await api.post(`/usuarios/${id}/documentos`, formData, {
         headers: { 'Content-Type': 'multipart/form-data' }
       });
-      setTempForm(prev => ({ ...prev, cv_path: res.data.url }));
+      const fieldName = endpoint === 'quadro-pessoal' ? 'cv_path' : 'doc_path';
+      setTempForm(prev => ({ ...prev, [fieldName]: res.data.url }));
       alert('Documento enviado com sucesso!');
     } catch { alert('Erro ao enviar documento'); }
     finally { setIsSaving(false); }
@@ -1117,8 +1199,8 @@ const PerfilMissionario: React.FC = () => {
       { key: 'situacao_egresso_desistencia_path', label: '2. Desistência ou outro inst.', icon: <FileText size={16} />, perm: null },
       { key: 'situacao_egresso_laicizado_path', label: '3. Laicizados', icon: <FileText size={16} />, perm: null },
       { key: 'situacao_egresso_transf_sacerdotes_path', label: '4. Sacerdotes/Rel. Transf.', icon: <FileText size={16} />, perm: null },
-      { key: 'situacao_egresso_transf_para_regiao_path', label: '5. Para a Região', icon: <FileText size={16} />, perm: null },
-      { key: 'situacao_egresso_transf_da_regiao_path', label: '6. Da Região p/ Províncias', icon: <FileText size={16} />, perm: null },
+      { key: 'situacao_egresso_transf_para_regiao_path', label: '4.1 Para a Região', icon: <FileText size={16} />, perm: null },
+      { key: 'situacao_egresso_transf_da_regiao_path', label: '4.2 Da Região p/ Províncias', icon: <FileText size={16} />, perm: null },
       { key: 'casas', label: 'Histórico de Presença', icon: <HomeIcon size={16} />, perm: null },
       { key: 'acesso', label: t('profile.tabs.access'), icon: <Lock size={16} />, perm: null },
       { key: 'permissoes', label: t('profile.tabs.permissions'), icon: <ShieldCheck size={16} />, perm: null },
@@ -1136,6 +1218,7 @@ const PerfilMissionario: React.FC = () => {
     sidebarItems = [
       { key: 'situacao_exclaustrado_data', label: '1. Data de Exclaustração', icon: <FileText size={16} />, perm: null },
       { key: 'situacao_exclaustrado_processo', label: '2. Processo / Decreto', icon: <FileText size={16} />, perm: null },
+      { key: 'situacao_exclaustrado_doc_path', label: '3. Documento', icon: <FileText size={16} />, perm: null },
       { key: 'casas', label: 'Histórico de Presença', icon: <HomeIcon size={16} />, perm: null },
       { key: 'acesso', label: t('profile.tabs.access'), icon: <Lock size={16} />, perm: null },
       { key: 'permissoes', label: t('profile.tabs.permissions'), icon: <ShieldCheck size={16} />, perm: null },
@@ -1306,7 +1389,7 @@ const PerfilMissionario: React.FC = () => {
             {SIDEBAR.map(item => {
               if (item.key === 'itinerario') {
                 const itinSubItems = [
-                  { key: 'itin_4.1', label: '4.1 Formação Inicial' },
+                  { key: 'itin_4.1', label: '4.1 Seminário' },
                   { key: 'itin_4.2', label: '4.2 Vida Religiosa' },
                   { key: 'itin_4.3', label: '4.3 Ministérios' },
                   { key: 'itin_4.4', label: '4.4 Destinação' },
@@ -1478,10 +1561,10 @@ const PerfilMissionario: React.FC = () => {
                         renderSituacaoDocField('4. Sacerdotes e Religiosos Transferidos (Documento PDF / JPEG)', 'egresso_transf_sacerdotes_path', 'egresso_transf_sacerdotes_path')
                       )}
                       {(activeTab === 'situacao' || activeTab === 'situacao_egresso_transf_para_regiao_path') && (
-                        renderSituacaoDocField('5. Para a Região (Documento PDF / JPEG)', 'egresso_transf_para_regiao_path', 'egresso_transf_para_regiao_path')
+                        renderSituacaoDocField('4.1 Para a Região (Documento PDF / JPEG)', 'egresso_transf_para_regiao_path', 'egresso_transf_para_regiao_path')
                       )}
                       {(activeTab === 'situacao' || activeTab === 'situacao_egresso_transf_da_regiao_path') && (
-                        renderSituacaoDocField('6. Da Região para outras Províncias / Região (Documento PDF / JPEG)', 'egresso_transf_da_regiao_path', 'egresso_transf_da_regiao_path')
+                        renderSituacaoDocField('4.2 Da Região para outras Províncias / Região (Documento PDF / JPEG)', 'egresso_transf_da_regiao_path', 'egresso_transf_da_regiao_path')
                       )}
                     </div>
                   )}
@@ -1515,6 +1598,9 @@ const PerfilMissionario: React.FC = () => {
                               disabled={!canEdit}
                             />
                           </div>
+                        )}
+                        {(activeTab === 'situacao' || activeTab === 'situacao_exclaustrado_doc_path') && (
+                          renderExclaustradoDocs()
                         )}
                       </div>
                     </div>
@@ -2111,14 +2197,14 @@ const PerfilMissionario: React.FC = () => {
             {/* Hidden File Input for Itinerary Documents */}
             <input type="file" ref={itinFileInputRef} onChange={e => { if (activeEtapaRef.current) handleItinDocUpload(e, activeEtapaRef.current); }} style={{ display: 'none' }} accept=".pdf,.jpg,.jpeg,.png" />
 
-            {/* --- 4.1 FORMAÇÃO INICIAL --- */}
+            {/* --- 4.1 SEMINÁRIO --- */}
             {activeTab === 'itin_4.1' && (
               <div className="tab-panel">
                 <div className="section-card" id="print-itinerario-41">
                   <div className="section-header-flex">
-                    <h3 className="section-title"><Activity size={16} /> 4.1 Formação Inicial</h3>
+                    <h3 className="section-title"><Activity size={16} /> 4.1 Seminário</h3>
                     {canPrint && (
-                      <button className="btn-action-lite-text" onClick={() => printSection('4.1 Formação Inicial', 'print-itinerario-41')}>
+                      <button className="btn-action-lite-text" onClick={() => printSection('4.1 Seminário', 'print-itinerario-41')}>
                         <Printer size={15} /> Imprimir
                       </button>
                     )}
@@ -2148,10 +2234,35 @@ const PerfilMissionario: React.FC = () => {
                       </button>
                     )}
                   </div>
+                  <h4 style={{ marginTop: '20px', marginBottom: '10px', color: '#013375', fontSize: '1rem' }}>4.2.1 Primeira Profissão</h4>
                   {renderItinSubItems([
-                    { label: '4.2.1 Primeira Profissão', etapaKey: '4.2.1' },
-                    { label: '4.2.2 Renovação Votos', etapaKey: '4.2.2' },
-                    { label: '4.2.3 Profissão Perpétua', etapaKey: '4.2.3' },
+                    { label: '4.2.1.1 Relatório do Mestre', etapaKey: '4.2.1.1' },
+                    { label: '4.2.1.2 Pedido do noviço', etapaKey: '4.2.1.2' },
+                    { label: '4.2.1.3 Declaração de cessão da administração de bens', etapaKey: '4.2.1.3' },
+                    { label: '4.2.1.4 Admissão', etapaKey: '4.2.1.4' },
+                    { label: '4.2.1.5 Fórmula manuscrita', etapaKey: '4.2.1.5' },
+                    { label: '4.2.1.6 Delegação para receber os votos', etapaKey: '4.2.1.6' },
+                  ])}
+                    
+                  <h4 style={{ marginTop: '20px', marginBottom: '10px', color: '#013375', fontSize: '1rem' }}>4.2.2 Renovação dos Votos</h4>
+                  {renderItinSubItems([
+                    { label: '4.2.2.1 Relatório do Formador', etapaKey: '4.2.2.1' },
+                    { label: '4.2.2.2 Pedido do religioso', etapaKey: '4.2.2.2' },
+                    { label: '4.2.2.3 Admissão Fórmula manuscrita', etapaKey: '4.2.2.3' },
+                    { label: '4.2.2.4 Delegação para receber os votos', etapaKey: '4.2.2.4' },
+                  ])}
+                    
+                  <h4 style={{ marginTop: '20px', marginBottom: '10px', color: '#013375', fontSize: '1rem' }}>4.2.3 Profissão Perpétua</h4>
+                  {renderItinSubItems([
+                    { label: '4.2.3.1 Relatório do Formador', etapaKey: '4.2.3.1' },
+                    { label: '4.2.3.2 Pedido do religioso', etapaKey: '4.2.3.2' },
+                    { label: '4.2.3.3 Declaração de nada exigir', etapaKey: '4.2.3.3' },
+                    { label: '4.2.3.4 Testamento particular', etapaKey: '4.2.3.4' },
+                    { label: '4.2.3.5 Declaração Nada Obsta', etapaKey: '4.2.3.5' },
+                    { label: '4.2.3.6 Admissão', etapaKey: '4.2.3.6' },
+                    { label: '4.2.3.7 Fórmula manuscrita', etapaKey: '4.2.3.7' },
+                    { label: '4.2.3.8 Delegação para receber os votos', etapaKey: '4.2.3.8' },
+                    { label: '4.2.3.9 Notificação à paróquia de batismo', etapaKey: '4.2.3.9' },
                   ])}
                 </div>
               </div>
@@ -2169,11 +2280,51 @@ const PerfilMissionario: React.FC = () => {
                       </button>
                     )}
                   </div>
+                  <h4 style={{ marginTop: '20px', marginBottom: '10px', color: '#013375', fontSize: '1rem' }}>4.3.1 Leitorado</h4>
                   {renderItinSubItems([
-                    { label: '4.3.1 Leitorado', etapaKey: '4.3.1' },
-                    { label: '4.3.2 Acolitado', etapaKey: '4.3.2' },
-                    { label: '4.3.3 Diaconato', etapaKey: '4.3.3' },
-                    { label: '4.3.4 Presbiterato', etapaKey: '4.3.4' },
+                    { label: '4.3.1.1 Apresentação', etapaKey: '4.3.1.1' },
+                    { label: '4.3.1.2 Pedido', etapaKey: '4.3.1.2' },
+                    { label: '4.3.1.3 Admissão', etapaKey: '4.3.1.3' },
+                    { label: '4.3.1.4 Certificado', etapaKey: '4.3.1.4' },
+                  ])}
+
+                  <h4 style={{ marginTop: '20px', marginBottom: '10px', color: '#013375', fontSize: '1rem' }}>4.3.2 Acolitado</h4>
+                  {renderItinSubItems([
+                    { label: '4.3.2.1 Apresentação', etapaKey: '4.3.2.1' },
+                    { label: '4.3.2.2 Pedido', etapaKey: '4.3.2.2' },
+                    { label: '4.3.2.3 Admissão', etapaKey: '4.3.2.3' },
+                    { label: '4.3.2.4 Certificado', etapaKey: '4.3.2.4' },
+                  ])}
+
+                  <h4 style={{ marginTop: '20px', marginBottom: '10px', color: '#013375', fontSize: '1rem' }}>4.3.3 Diaconato</h4>
+                  {renderItinSubItems([
+                    { label: '4.3.3.1 Relatório do Formador', etapaKey: '4.3.3.1' },
+                    { label: '4.3.3.2 Pedido do religioso', etapaKey: '4.3.3.2' },
+                    { label: '4.3.3.3 Declaração dos estudos teológicos', etapaKey: '4.3.3.3' },
+                    { label: '4.3.3.4 Declaração Nada Obsta', etapaKey: '4.3.3.4' },
+                    { label: '4.3.3.5 Admissão', etapaKey: '4.3.3.5' },
+                    { label: '4.3.3.6 Cartas dimissórias', etapaKey: '4.3.3.6' },
+                    { label: '4.3.3.7 Ata de ordenação', etapaKey: '4.3.3.7' },
+                    { label: '4.3.3.8 Notificação à paróquia de batismo', etapaKey: '4.3.3.8' },
+                  ])}
+
+                  <h4 style={{ marginTop: '20px', marginBottom: '10px', color: '#013375', fontSize: '1rem' }}>4.3.4 Presbiterado</h4>
+                  {renderItinSubItems([
+                    { label: '4.3.4.1 Relatório do Formador', etapaKey: '4.3.4.1' },
+                    { label: '4.3.4.2 Pedido do diácono', etapaKey: '4.3.4.2' },
+                    { label: '4.3.4.3 Declaração dos estudos teológicos', etapaKey: '4.3.4.3' },
+                    { label: '4.3.4.4 Declaração Nada Obsta', etapaKey: '4.3.4.4' },
+                    { label: '4.3.4.5 Admissão', etapaKey: '4.3.4.5' },
+                    { label: '4.3.4.6 Cartas dimissórias', etapaKey: '4.3.4.6' },
+                    { label: '4.3.4.7 Ata de ordenação', etapaKey: '4.3.4.7' },
+                    { label: '4.3.4.8 Notificação à paróquia de batismo', etapaKey: '4.3.4.8' },
+                  ])}
+
+                  <h4 style={{ marginTop: '20px', marginBottom: '10px', color: '#013375', fontSize: '1rem' }}>4.3.5 Primeira destinação missionária</h4>
+                  {renderItinSubItems([
+                    { label: '4.3.5.1 Carta do religioso', etapaKey: '4.3.5.1' },
+                    { label: '4.3.5.2 Relatório', etapaKey: '4.3.5.2' },
+                    { label: '4.3.5.3 Parecer do Superior Regional', etapaKey: '4.3.5.3' },
                   ])}
                 </div>
               </div>
@@ -2767,7 +2918,16 @@ const PerfilMissionario: React.FC = () => {
                               accept=".pdf,.jpg,.jpeg,.png"
                             />
                           </div>
-                          {tempForm.doc_path && <span style={{ fontSize: '0.8rem', color: '#16a34a', marginTop: '4px' }}>Documento anexo mantido</span>}
+                          {tempForm.doc_path && (
+                            <div style={{ display: 'flex', gap: '10px', alignItems: 'center', marginTop: '8px' }}>
+                              <a href={getFileUrl(tempForm.doc_path)} target="_blank" rel="noreferrer" style={{ fontSize: '0.85rem', color: '#1d4ed8', textDecoration: 'none', display: 'flex', alignItems: 'center', gap: '4px', fontWeight: 600 }}>
+                                <FileText size={14} /> Visualizar Documento
+                              </a>
+                              <button type="button" onClick={() => setTempForm({ ...tempForm, doc_path: null })} style={{ fontSize: '0.85rem', color: '#ef4444', background: 'none', border: 'none', cursor: 'pointer', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '4px' }}>
+                                <Trash2 size={14} /> Remover Anexo
+                              </button>
+                            </div>
+                          )}
                         </div>
                       </>
                     )}

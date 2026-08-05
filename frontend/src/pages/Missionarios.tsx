@@ -221,7 +221,6 @@ function calcDuracao(dataInicio: string): string {
 // ─── Component ───────────────────────────────────────────────────────────────
 
 const ITIN_STAGES = [
-  '4.1 Seminário (geral)',
   '4.1.1 Seminário Menor',
   '4.1.2 Propedêutico',
   '4.1.3 Filosofia',
@@ -229,14 +228,52 @@ const ITIN_STAGES = [
   '4.1.5 Noviciado',
   '4.1.6 Teologia',
   '4.1.7 Tirocínio',
-  '4.2.1 Primeira Profissão',
-  'Renovação de Votos',
-  '4.2.2 Profissão Perpetúa',
-  '4.2.3 Diaconato',
-  '4.2.4 Presbiterato',
-  '4.3.1 Leitorato',
-  '4.3.2 Acolitato',
-  '4.3.3 Ministro de Eucaristia'
+  '4.2.1.1 Relatório do Mestre',
+  '4.2.1.2 Pedido do noviço',
+  '4.2.1.3 Declaração de cessão da administração de bens',
+  '4.2.1.4 Admissão',
+  '4.2.1.5 Fórmula manuscrita',
+  '4.2.1.6 Delegação para receber os votos',
+  '4.2.2.1 Relatório do Formador',
+  '4.2.2.2 Pedido do religioso',
+  '4.2.2.3 Admissão Fórmula manuscrita',
+  '4.2.2.4 Delegação para receber os votos',
+  '4.2.3.1 Relatório do Formador',
+  '4.2.3.2 Pedido do religioso',
+  '4.2.3.3 Declaração de nada exigir',
+  '4.2.3.4 Testamento particular',
+  '4.2.3.5 Declaração Nada Obsta',
+  '4.2.3.6 Admissão',
+  '4.2.3.7 Fórmula manuscrita',
+  '4.2.3.8 Delegação para receber os votos',
+  '4.2.3.9 Notificação à paróquia de batismo',
+  '4.3.1.1 Apresentação',
+  '4.3.1.2 Pedido',
+  '4.3.1.3 Admissão',
+  '4.3.1.4 Certificado',
+  '4.3.2.1 Apresentação',
+  '4.3.2.2 Pedido',
+  '4.3.2.3 Admissão',
+  '4.3.2.4 Certificado',
+  '4.3.3.1 Relatório do Formador',
+  '4.3.3.2 Pedido do religioso',
+  '4.3.3.3 Declaração dos estudos teológicos',
+  '4.3.3.4 Declaração Nada Obsta',
+  '4.3.3.5 Admissão',
+  '4.3.3.6 Cartas dimissórias',
+  '4.3.3.7 Ata de ordenação',
+  '4.3.3.8 Notificação à paróquia de batismo',
+  '4.3.4.1 Relatório do Formador',
+  '4.3.4.2 Pedido do diácono',
+  '4.3.4.3 Declaração dos estudos teológicos',
+  '4.3.4.4 Declaração Nada Obsta',
+  '4.3.4.5 Admissão',
+  '4.3.4.6 Cartas dimissórias',
+  '4.3.4.7 Ata de ordenação',
+  '4.3.4.8 Notificação à paróquia de batismo',
+  '4.3.5.1 Carta do religioso',
+  '4.3.5.2 Relatório',
+  '4.3.5.3 Parecer do Superior Regional'
 ];
 
 const PERMISSIONS_LIST = [
@@ -626,14 +663,30 @@ const Missionarios: React.FC = () => {
         });
       }
 
+      const stageDocs: Record<string, string> = {};
       for (const idoc of itineraryDocs) {
         const fd = new FormData();
         fd.append('arquivo', idoc.file);
         fd.append('descricao', `Itinerário - ${idoc.stage}`);
-        await api.post(`/usuarios/${newId}/documentos`, fd, {
+        const upRes = await api.post(`/usuarios/${newId}/documentos`, fd, {
           headers: { 'Content-Type': 'multipart/form-data' },
         });
+        stageDocs[idoc.stage] = upRes.data.url || upRes.data.arquivo_path;
       }
+
+      const finalItinerario = wizardData.itinerario.map(stage => {
+        if (stageDocs[stage.etapa]) {
+          return { ...stage, doc_path: stageDocs[stage.etapa] };
+        }
+        return stage;
+      });
+      Object.keys(stageDocs).forEach(etapa => {
+        if (!finalItinerario.find(s => s.etapa === etapa)) {
+          finalItinerario.push({ etapa, local: '', periodo: '', is_sub_etapa: true, doc_path: stageDocs[etapa] });
+        }
+      });
+      
+      await api.post(`/usuarios/${newId}/itinerario`, { stages: finalItinerario });
 
       await fetchMissionarios();
       setIsWizardOpen(false);
@@ -1118,6 +1171,7 @@ const Missionarios: React.FC = () => {
 
                   <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '14px' }}>
                     {[
+                      { title: '4.1 Seminário' },
                       { label: '4.1.1 Seminário Menor', etapa: '4.1.1' },
                       { label: '4.1.2 Propedêutico', etapa: '4.1.2' },
                       { label: '4.1.3 Filosofia', etapa: '4.1.3' },
@@ -1125,14 +1179,68 @@ const Missionarios: React.FC = () => {
                       { label: '4.1.5 Noviciado', etapa: '4.1.5' },
                       { label: '4.1.6 Teologia', etapa: '4.1.6' },
                       { label: '4.1.7 Tirocínio', etapa: '4.1.7' },
-                      { label: '4.2.1 Primeira Profissão', etapa: '4.2.1' },
-                      { label: '4.2.2 Renovação Votos', etapa: '4.2.2' },
-                      { label: '4.2.3 Profissão Perpétua', etapa: '4.2.3' },
-                      { label: '4.3.1 Leitorato', etapa: '4.3.1' },
-                      { label: '4.3.2 Acolitado', etapa: '4.3.2' },
-                      { label: '4.3.3 Diaconato', etapa: '4.3.3' },
-                      { label: '4.3.4 Presbiterato', etapa: '4.3.4' },
+                      { title: '4.2.1 Primeira Profissão' },
+                      { label: '4.2.1.1 Relatório do Mestre', etapa: '4.2.1.1' },
+                      { label: '4.2.1.2 Pedido do noviço', etapa: '4.2.1.2' },
+                      { label: '4.2.1.3 Declaração de cessão da administração de bens', etapa: '4.2.1.3' },
+                      { label: '4.2.1.4 Admissão', etapa: '4.2.1.4' },
+                      { label: '4.2.1.5 Fórmula manuscrita', etapa: '4.2.1.5' },
+                      { label: '4.2.1.6 Delegação para receber os votos', etapa: '4.2.1.6' },
+                      { title: '4.2.2 Renovação dos Votos' },
+                      { label: '4.2.2.1 Relatório do Formador', etapa: '4.2.2.1' },
+                      { label: '4.2.2.2 Pedido do religioso', etapa: '4.2.2.2' },
+                      { label: '4.2.2.3 Admissão Fórmula manuscrita', etapa: '4.2.2.3' },
+                      { label: '4.2.2.4 Delegação para receber os votos', etapa: '4.2.2.4' },
+                      { title: '4.2.3 Profissão Perpétua' },
+                      { label: '4.2.3.1 Relatório do Formador', etapa: '4.2.3.1' },
+                      { label: '4.2.3.2 Pedido do religioso', etapa: '4.2.3.2' },
+                      { label: '4.2.3.3 Declaração de nada exigir', etapa: '4.2.3.3' },
+                      { label: '4.2.3.4 Testamento particular', etapa: '4.2.3.4' },
+                      { label: '4.2.3.5 Declaração Nada Obsta', etapa: '4.2.3.5' },
+                      { label: '4.2.3.6 Admissão', etapa: '4.2.3.6' },
+                      { label: '4.2.3.7 Fórmula manuscrita', etapa: '4.2.3.7' },
+                      { label: '4.2.3.8 Delegação para receber os votos', etapa: '4.2.3.8' },
+                      { label: '4.2.3.9 Notificação à paróquia de batismo', etapa: '4.2.3.9' },
+                      { title: '4.3.1 Leitorado' },
+                      { label: '4.3.1.1 Apresentação', etapa: '4.3.1.1' },
+                      { label: '4.3.1.2 Pedido', etapa: '4.3.1.2' },
+                      { label: '4.3.1.3 Admissão', etapa: '4.3.1.3' },
+                      { label: '4.3.1.4 Certificado', etapa: '4.3.1.4' },
+                      { title: '4.3.2 Acolitado' },
+                      { label: '4.3.2.1 Apresentação', etapa: '4.3.2.1' },
+                      { label: '4.3.2.2 Pedido', etapa: '4.3.2.2' },
+                      { label: '4.3.2.3 Admissão', etapa: '4.3.2.3' },
+                      { label: '4.3.2.4 Certificado', etapa: '4.3.2.4' },
+                      { title: '4.3.3 Diaconato' },
+                      { label: '4.3.3.1 Relatório do Formador', etapa: '4.3.3.1' },
+                      { label: '4.3.3.2 Pedido do religioso', etapa: '4.3.3.2' },
+                      { label: '4.3.3.3 Declaração dos estudos teológicos', etapa: '4.3.3.3' },
+                      { label: '4.3.3.4 Declaração Nada Obsta', etapa: '4.3.3.4' },
+                      { label: '4.3.3.5 Admissão', etapa: '4.3.3.5' },
+                      { label: '4.3.3.6 Cartas dimissórias', etapa: '4.3.3.6' },
+                      { label: '4.3.3.7 Ata de ordenação', etapa: '4.3.3.7' },
+                      { label: '4.3.3.8 Notificação à paróquia de batismo', etapa: '4.3.3.8' },
+                      { title: '4.3.4 Presbiterado' },
+                      { label: '4.3.4.1 Relatório do Formador', etapa: '4.3.4.1' },
+                      { label: '4.3.4.2 Pedido do diácono', etapa: '4.3.4.2' },
+                      { label: '4.3.4.3 Declaração dos estudos teológicos', etapa: '4.3.4.3' },
+                      { label: '4.3.4.4 Declaração Nada Obsta', etapa: '4.3.4.4' },
+                      { label: '4.3.4.5 Admissão', etapa: '4.3.4.5' },
+                      { label: '4.3.4.6 Cartas dimissórias', etapa: '4.3.4.6' },
+                      { label: '4.3.4.7 Ata de ordenação', etapa: '4.3.4.7' },
+                      { label: '4.3.4.8 Notificação à paróquia de batismo', etapa: '4.3.4.8' },
+                      { title: '4.3.5 Primeira destinação missionária' },
+                      { label: '4.3.5.1 Carta do religioso', etapa: '4.3.5.1' },
+                      { label: '4.3.5.2 Relatório', etapa: '4.3.5.2' },
+                      { label: '4.3.5.3 Parecer do Superior Regional', etapa: '4.3.5.3' },
                     ].map((seg, idx) => {
+                      if (seg.title) {
+                        return (
+                          <div key={idx} style={{ gridColumn: '1 / -1', color: '#013375', fontWeight: 700, marginTop: '20px', borderBottom: '2px solid #e2e8f0', paddingBottom: '4px', fontSize: '0.9rem' }}>
+                            {seg.title}
+                          </div>
+                        );
+                      }
                       const stage = wizardData.itinerario.find(s => s.etapa === seg.etapa) || { etapa: seg.etapa, is_sub_etapa: true, local: '', periodo: '' };
                       const updateStage = (field: 'local' | 'periodo', val: string) => {
                         const newItin = [...wizardData.itinerario];
